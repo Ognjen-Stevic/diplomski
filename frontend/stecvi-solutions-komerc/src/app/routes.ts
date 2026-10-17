@@ -1,0 +1,17 @@
+export const APP_ROUTES = {
+    home: "/",
+    login: "/login",
+    customers: "/kupci",
+    newCustomer: "/kupci/novi",
+    reports: "/izvestaji",
+    team: "/team",
+    employees: "/zaposleni",
+    products: "/artikli",
+    requisitions: "/trebovanja",
+    newRequisition: "/trebovanja/novo",
+    goodsRequests: "/zahtevi",
+    newGoodsRequest: "/zahtevi/novi",
+    advertisingMaterials: "/reklamni-materijal",
+    newAdvertisingMaterialDistribution: "/reklamni-materijal/novo",
+    advertisingMaterialManagement: "/reklamni-materijal/upravljanje",
+} as const;

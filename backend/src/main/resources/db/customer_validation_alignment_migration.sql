@@ -1,0 +1,7 @@
+BEGIN;
+
+ALTER TABLE customer
+    ALTER COLUMN object_name TYPE VARCHAR(300),
+    ALTER COLUMN company_name TYPE VARCHAR(300);
+
+COMMIT;

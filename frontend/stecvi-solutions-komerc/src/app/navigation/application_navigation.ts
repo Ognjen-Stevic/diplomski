@@ -1,0 +1,96 @@
+import {
+    BarChart3,
+    Box,
+    ClipboardList,
+    Home,
+    Package,
+    PackagePlus,
+    PackageSearch,
+    UserRoundCog,
+    Users,
+    UsersRound,
+} from "lucide-react";
+
+import { APP_ROUTES } from "../routes";
+import { PERMISSIONS } from "../../roles/permissions";
+import type { NavigationItem } from "./types/navigation.types";
+
+export const applicationNavigation = [
+    {
+        id: "home",
+        label: "Početna",
+        route: APP_ROUTES.home,
+        icon: Home,
+        mobilePosition: 1,
+        exact: true,
+    },
+    {
+        id: "customers",
+        label: "Kupci",
+        route: APP_ROUTES.customers,
+        icon: Users,
+        permission: PERMISSIONS.CUSTOMERS_READ,
+        mobilePosition: 2,
+    },
+    {
+        id: "requisitions",
+        label: "Trebovanja",
+        route: APP_ROUTES.requisitions,
+        icon: ClipboardList,
+        permission: PERMISSIONS.REQUISITIONS_READ,
+        mobilePosition: 4,
+    },
+    {
+        id: "reports",
+        label: "Izveštaji",
+        route: APP_ROUTES.reports,
+        icon: BarChart3,
+        permission: PERMISSIONS.SALES_REPORTS_READ,
+    },
+    {
+        id: "team",
+        label: "Moj tim",
+        route: APP_ROUTES.team,
+        icon: UsersRound,
+        permission: PERMISSIONS.EMPLOYEES_READ,
+        roles: ["MANAGER", "CEO"],
+    },
+    {
+        id: "employees",
+        label: "Zaposleni",
+        route: APP_ROUTES.employees,
+        icon: UserRoundCog,
+        permission: PERMISSIONS.EMPLOYEES_READ,
+        roles: ["CEO"],
+    },
+    {
+        id: "products",
+        label: "Artikli",
+        route: APP_ROUTES.products,
+        icon: PackageSearch,
+        roles: ["CEO", "BOOKKEEPER"],
+    },
+    {
+        id: "advertising-material-management",
+        label: "Upravljanje materijalom",
+        route: APP_ROUTES.advertisingMaterialManagement,
+        icon: PackagePlus,
+        roles: ["CEO"],
+    },
+    {
+        id: "goods-requests",
+        label: "Zahtev za robu",
+        route: APP_ROUTES.goodsRequests,
+        icon: Box,
+        permission: PERMISSIONS.GOODS_REQUESTS_READ,
+    },
+    {
+        id: "promotional-material",
+        label: "Reklamni materijal",
+        route: APP_ROUTES.advertisingMaterials,
+        icon: Package,
+        permission: PERMISSIONS.ADVERTISING_MATERIALS_READ,
+        roles: ["SALES_REP", "MANAGER", "CEO"],
+        exact: true,
+    },
+] satisfies readonly NavigationItem[];
