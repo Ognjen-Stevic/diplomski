@@ -90,12 +90,10 @@ export function DashboardAlerts() {
             {visibleAlerts.map((alert) => {
                 const content = <><span aria-hidden="true">🔔 </span>{alert.label}: {snapshot.counters[alert.key]}</>;
                 const className = "rounded-2xl border border-stormy-teal/30 bg-white px-4 py-3 font-semibold text-yale-blue shadow-lg";
-                return alert.route ? (
-                    <Link key={`${alert.key}-${alert.label}`} to={alert.route} className={`${className} transition hover:border-stormy-teal hover:shadow-xl`}>
+                return (
+                    <Link key={`${alert.key}-${alert.label}`} to={alert.route} className={`${className} transition hover:border-stormy-teal hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stormy-teal focus-visible:ring-offset-2`}>
                         {content}
                     </Link>
-                ) : (
-                    <div key={`${alert.key}-${alert.label}`} role="status" className={className}>{content}</div>
                 );
             })}
         </aside>

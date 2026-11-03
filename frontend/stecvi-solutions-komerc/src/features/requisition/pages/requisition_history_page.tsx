@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useMonthlyRequisitions } from "../hooks/use_requisition_data";
+import { useRequisitionNavigation } from "../hooks/use_requisition_navigation";
+import { APP_ROUTES } from "../../../app/routes";
+import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -9,7 +12,6 @@ import { useAuth } from "../../auth/hooks/useAuth";
 import { RequisitionDetailsPanel } from "../components/requisition_details_panel";
 import { RequisitionTable } from "../components/requisition_table";
 import { requisitionApi } from "../requisition_api";
-import type { RequisitionListItem } from "../types/requisition.types";
 
 export default function RequisitionHistoryPage() {
     const navigate = useNavigate();
@@ -17,45 +19,22 @@ export default function RequisitionHistoryPage() {
     const { user, hasPermission } = useAuth();
     const customerId = Number(customerIdParam);
     const validCustomerId = Number.isInteger(customerId) && customerId > 0;
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const current = new Date();
-        return new Date(current.getFullYear(), current.getMonth(), 1);
-    });
-    const [requisitions, setRequisitions] = useState<RequisitionListItem[]>([]);
-    const [selectedRequisition, setSelectedRequisition] = useState<RequisitionListItem | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const navigation = useRequisitionNavigation();
+    const selectedDate = navigation.date;
+    const query = useMonthlyRequisitions(navigation.year, navigation.month, customerId);
+    const requisitions = query.data?.requisitions ?? [];
+    const { loading, error } = query;
+    const [selection, setSelection] = useState<{ id: number; context: object } | null>(null);
+    const selectedRequisition = selection?.context === query.context
+        ? requisitions.find((item) => item.id === selection.id) ?? null : null;
     const selectedPeriod = new Intl.DateTimeFormat("sr-Latn-RS", {
         month: "long",
         year: "numeric",
     }).format(selectedDate);
 
-    useEffect(() => {
-        if (!user || !validCustomerId || !hasPermission(PERMISSIONS.REQUISITIONS_READ)) return;
-
-        let active = true;
-        requisitionApi.getMonthlyCustomerRequisitions(
-            customerId,
-            selectedDate.getFullYear(),
-            selectedDate.getMonth() + 1,
-        )
-            .then((result) => { if (active) setRequisitions(result.requisitions); })
-            .catch((requestError: unknown) => {
-                if (active) {
-                    setRequisitions([]);
-                    setError(requestError instanceof Error
-                        ? requestError.message
-                        : "Istorija trebovanja nije učitana.");
-                }
-            })
-            .finally(() => { if (active) setLoading(false); });
-
-        return () => { active = false; };
-    }, [customerId, hasPermission, selectedDate, user, validCustomerId]);
-
-    if (!user) return <Navigate to="/login" replace />;
+    if (!user) return <Navigate to={APP_ROUTES.login} replace />;
     if (!hasPermission(PERMISSIONS.REQUISITIONS_READ) || !validCustomerId) {
-        return <Navigate to="/kupci" replace />;
+        return <Navigate to={APP_ROUTES.customers} replace />;
     }
 
     return (
@@ -63,7 +42,7 @@ export default function RequisitionHistoryPage() {
             <main className="w-full min-w-0 px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:px-10 lg:pb-12 xl:px-12">
                 <button
                     type="button"
-                    onClick={() => navigate("/kupci")}
+                    onClick={() => navigate(APP_ROUTES.customers)}
                     className="inline-flex items-center gap-2 text-sm font-semibold text-yale-blue transition hover:text-stormy-teal focus:outline-none focus:ring-2 focus:ring-stormy-teal/30"
                 >
                     <ArrowLeft className="h-4 w-4" />
@@ -80,37 +59,31 @@ export default function RequisitionHistoryPage() {
                     </p>
                 </header>
 
-                <PeriodSelector value={selectedDate} onChange={(date) => {
-                    setLoading(true);
-                    setError("");
-                    setSelectedRequisition(null);
-                    setSelectedDate(date);
-                }} />
+                <PeriodSelector value={selectedDate} onChange={(date) => navigation.update(date, navigation.status)} />
 
                 {error && (
-                    <p role="alert" className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-red-700">{error}</p>
+                    <p role="alert" className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-red-700">{error}<button type="button" onClick={query.retry} className="ml-3 font-bold underline">Pokušaj ponovo</button></p>
                 )}
                 {loading ? (
                     <p className="mt-8 text-center text-graphite/60">Učitavanje istorije trebovanja...</p>
-                ) : (
+                ) : error ? null : (
                     <RequisitionTable
                         requisitions={requisitions}
                         period={selectedPeriod}
                         showSalesRep={user.role === "MANAGER" || user.role === "CEO"}
-                        onSelect={setSelectedRequisition}
+                        onSelect={(item) => setSelection({ id: item.id, context: query.context })}
                     />
                 )}
             </main>
 
             {selectedRequisition && (
-                <RequisitionDetailsPanel
+                <RequisitionDetailsPanel key={`${selectedRequisition.id}:${selectedRequisition.revision}`}
                     requisition={selectedRequisition}
-                    onClose={() => setSelectedRequisition(null)}
-                    onEdit={() => navigate(`/trebovanja/${selectedRequisition.id}/izmena`)}
+                    onClose={() => setSelection(null)}
+                    onEdit={() => navigate(APP_ROUTES.editRequisition(selectedRequisition.id))}
                     onStatusChange={async (status, note) => {
-                        const updated = await requisitionApi.updateStatus(selectedRequisition.id, status, note);
-                        setSelectedRequisition(updated);
-                        setRequisitions((current) => current.map((item) => item.id === updated.id ? updated : item));
+                        await requisitionApi.updateStatus(selectedRequisition.id, status, note, selectedRequisition.revision);
+                        query.retry();
                     }}
                 />
             )}

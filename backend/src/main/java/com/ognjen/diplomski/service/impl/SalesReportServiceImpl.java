@@ -79,7 +79,7 @@ public class SalesReportServiceImpl implements SalesReportService {
                 ? aggregateTeamSales(scope.managerId(), range)
                 : aggregateSales(
                         findForScope(scope, RequisitionType.NORMAL, range),
-                        scope.managerStimulation()
+                        scope.managerStimulation(), scope.organizationReport()
                 );
 
         return new MonthlySalesReportResponse(
@@ -114,7 +114,7 @@ public class SalesReportServiceImpl implements SalesReportService {
                 : findForScope(scope, RequisitionType.NORMAL, range);
         SalesAggregation aggregation = scope.teamReport()
                 ? aggregateTeamSales(scope.managerId(), range)
-                : aggregateSales(requisitions, scope.managerStimulation());
+                : aggregateSales(requisitions, scope.managerStimulation(), scope.organizationReport());
 
         Map<Integer, BigDecimal> incentivesByMonth = new LinkedHashMap<>();
         int lastMonth = year == now.getYear() ? now.getMonthValue() : 12;
@@ -131,7 +131,7 @@ public class SalesReportServiceImpl implements SalesReportService {
         } else {
             for (Requisition requisition : requisitions) {
                 BigDecimal incentive = requisition.getItems().stream()
-                        .map(item -> itemIncentive(item, scope.managerStimulation()))
+                        .map(item -> itemIncentive(item, scope.managerStimulation(), scope.organizationReport()))
                         .reduce(ZERO_MONEY, BigDecimal::add);
                 incentivesByMonth.merge(requisition.getCreatedAt().getMonthValue(), incentive, BigDecimal::add);
             }
@@ -528,7 +528,7 @@ public class SalesReportServiceImpl implements SalesReportService {
 
     private static SalesAggregation aggregateSales(
             List<Requisition> requisitions,
-            boolean managerStimulation
+            boolean managerStimulation, boolean companyReport
     ) {
         Map<Long, ProductAccumulator> products = new LinkedHashMap<>();
         BigDecimal totalItems = BigDecimal.ZERO;
@@ -541,7 +541,7 @@ public class SalesReportServiceImpl implements SalesReportService {
             for (RequisitionItem item : requisition.getItems()) {
                 products.computeIfAbsent(
                                 item.getProduct().getId(),
-                                ignored -> new ProductAccumulator(item.getProduct(), managerStimulation)
+                                ignored -> new ProductAccumulator(item.getProduct(), managerStimulation, companyReport)
                         )
                         .add(item);
                 totalItems = totalItems.add(item.getQuantity());
@@ -551,7 +551,7 @@ public class SalesReportServiceImpl implements SalesReportService {
                     totalJugs = totalJugs.add(item.getQuantity());
                 }
                 totalLiters = totalLiters.add(itemLiters(item));
-                totalIncentive = totalIncentive.add(itemIncentive(item, managerStimulation));
+                totalIncentive = totalIncentive.add(itemIncentive(item, managerStimulation, companyReport));
             }
         }
 
@@ -565,6 +565,15 @@ public class SalesReportServiceImpl implements SalesReportService {
                 liters(totalLiters),
                 money(totalIncentive)
         );
+        if (companyReport) {
+            BigDecimal salesRepIncentive = requisitions.stream().flatMap(r -> r.getItems().stream())
+                    .map(item -> itemIncentive(item, false)).reduce(ZERO_MONEY, BigDecimal::add);
+            BigDecimal managerIncentive = requisitions.stream().flatMap(r -> r.getItems().stream())
+                    .map(item -> itemIncentive(item, true)).reduce(ZERO_MONEY, BigDecimal::add);
+            summary = new SalesReportSummaryResponse(summary.totalItems(), summary.totalBottles(),
+                    summary.totalJugs(), summary.totalLiters(), money(salesRepIncentive.add(managerIncentive)),
+                    money(salesRepIncentive), money(managerIncentive));
+        }
         return new SalesAggregation(summary, productRows);
     }
 
@@ -586,6 +595,11 @@ public class SalesReportServiceImpl implements SalesReportService {
 
     private static BigDecimal itemLiters(RequisitionItem item) {
         return item.getQuantity().multiply(item.getProduct().getVolumeLiters());
+    }
+
+    private static BigDecimal itemIncentive(RequisitionItem item, boolean managerStimulation, boolean companyReport) {
+        return companyReport ? itemIncentive(item, false).add(itemIncentive(item, true))
+                : itemIncentive(item, managerStimulation);
     }
 
     private static BigDecimal itemIncentive(RequisitionItem item, boolean managerStimulation) {
@@ -636,17 +650,23 @@ public class SalesReportServiceImpl implements SalesReportService {
     private static final class ProductAccumulator {
         private final Product product;
         private final boolean managerStimulation;
+        private final boolean companyReport;
         private BigDecimal units = BigDecimal.ZERO;
         private BigDecimal totalIncentive = BigDecimal.ZERO;
 
         private ProductAccumulator(Product product, boolean managerStimulation) {
+            this(product, managerStimulation, false);
+        }
+
+        private ProductAccumulator(Product product, boolean managerStimulation, boolean companyReport) {
             this.product = product;
             this.managerStimulation = managerStimulation;
+            this.companyReport = companyReport;
         }
 
         private void add(RequisitionItem item) {
             units = units.add(item.getQuantity());
-            totalIncentive = totalIncentive.add(itemIncentive(item, managerStimulation));
+            totalIncentive = totalIncentive.add(itemIncentive(item, managerStimulation, companyReport));
         }
 
         private ProductSalesReportResponse toSalesResponse() {

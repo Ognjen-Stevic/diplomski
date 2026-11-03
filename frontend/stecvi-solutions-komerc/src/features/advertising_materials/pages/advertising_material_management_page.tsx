@@ -1,3 +1,5 @@
+import { useSessionCurrent } from "../../../shared/hooks/use_session_request";
+import { SessionScope } from "../../../shared/components/session_scope";
 import { useMemo, useState } from "react";
 import { Package, Plus, Search } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
@@ -13,8 +15,10 @@ import type { AdvertisingMaterial } from "../types/advertising_material.types";
 
 type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE";
 
-export default function AdvertisingMaterialManagementPage() {
+export default function AdvertisingMaterialManagementPage() { return <SessionScope><AdvertisingMaterialManagementPageContent /></SessionScope>; }
+function AdvertisingMaterialManagementPageContent() {
     const { user } = useAuth();
+    const isCurrent = useSessionCurrent();
     const [searchParams, setSearchParams] = useSearchParams();
     const catalog = useAdvertisingMaterialCatalog(user?.role === "CEO");
     const [formError, setFormError] = useState("");
@@ -55,7 +59,7 @@ export default function AdvertisingMaterialManagementPage() {
         setFormError("");
         try {
             await catalog.createAdvertisingMaterial(name);
-            setFormVisibility(false);
+            if (isCurrent()) setFormVisibility(false);
         } catch (error) {
             setFormError(
                 error instanceof Error

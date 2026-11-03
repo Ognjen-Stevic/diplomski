@@ -1,3 +1,4 @@
+import { useDialog } from "../../../shared/hooks/use_dialog";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Save, X } from "lucide-react";
 import type { ProductCreatePayload } from "../types/product_management.types";
@@ -15,6 +16,7 @@ export function ProductForm({
     onCancel: () => void;
     onSubmit: (payload: ProductCreatePayload, image: File | null) => Promise<void>;
 }) {
+    const dialog = useDialog(onCancel, saving);
     const [name, setName] = useState("");
     const [code, setCode] = useState("");
     const [price, setPrice] = useState("");
@@ -39,7 +41,7 @@ export function ProductForm({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="product-form-title">
+        <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="product-form-title">
             <form onSubmit={submit} className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-7">
                 <div className="flex items-start justify-between gap-4">
                     <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-stormy-teal">Upravljanje artiklima</p><h2 id="product-form-title" className="mt-1 text-2xl font-bold text-yale-blue">Novi artikal</h2></div>

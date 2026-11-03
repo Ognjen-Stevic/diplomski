@@ -13,6 +13,8 @@ import java.util.Collection;
 
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"salesRep","salesRep.manager"})
+    java.util.List<Customer> findByIdIn(java.util.Collection<Long> ids);
 
     boolean existsBySalesRepId(Long salesRepId);
 

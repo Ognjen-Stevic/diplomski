@@ -1,13 +1,11 @@
-import { authenticatedFetch } from "../../app/api/http_client";
+import { apiRequest } from "../../app/api/http_client";
 import type { Product } from "../../shared/types/product";
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+import { resolveProductPictureUrl } from "../../shared/utils/asset_url";
 
 export const productApi = {
-    async getAvailableProducts(): Promise<Product[]> {
-        const response = await authenticatedFetch("/api/products/available");
-        if (!response.ok) throw new Error("Proizvodi nisu učitani.");
-        const products = await response.json() as Product[];
+    async getAvailableProducts(signal?: AbortSignal): Promise<Product[]> {
+        const products = await apiRequest<Product[]>("/api/products/available", { signal });
         return products.map((product) => ({
             ...product,
             key: product.code,
@@ -19,8 +17,3 @@ export const productApi = {
         }));
     },
 };
-
-export function resolveProductPictureUrl(pictureUrl: string) {
-    if (/^https?:\/\//i.test(pictureUrl)) return pictureUrl;
-    return `${API_URL}/${pictureUrl.replace(/^\//, "")}`;
-}

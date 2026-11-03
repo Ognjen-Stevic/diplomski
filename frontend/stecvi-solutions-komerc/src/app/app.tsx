@@ -1,4 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import AiPage from "../features/ai/ai_page";
+import { ErrorBoundary } from "./error_boundary";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import CustomersPage from "../features/customer/pages/customers_page";
 import NewCustomerPage from "../features/customer/pages/new_customer_page";
 import HomePage from "../features/dashboard/pages/home_page";
@@ -21,12 +23,13 @@ import { APP_ROUTES } from "./routes";
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <ErrorBoundary><BrowserRouter>
       <Routes>
         <Route element={<GuestRoute />}>
           <Route path={APP_ROUTES.login} element={<AuthForm />} />
         </Route>
         <Route element={<ProtectedRoute />}>
+          <Route path={APP_ROUTES.ai} element={<AiPage />} />
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.customers} element={<CustomersPage />} />
           <Route path={APP_ROUTES.newCustomer} element={<NewCustomerPage />} />
@@ -45,8 +48,8 @@ export default function App() {
           <Route path={APP_ROUTES.advertisingMaterialManagement} element={<AdvertisingMaterialManagementPage />} />
           <Route path={APP_ROUTES.newAdvertisingMaterialDistribution} element={<NewAdvertisingMaterialDistributionPage />} />
         </Route>
-        <Route path="*" element={<Navigate to={APP_ROUTES.home} replace />} />
+        <Route path="*" element={<main className="p-6"><h1 className="text-2xl font-bold">Stranica nije pronađena</h1><a href={APP_ROUTES.home}>Početna</a></main>} />
       </Routes>
-    </BrowserRouter>
+    </BrowserRouter></ErrorBoundary>
   )
 }

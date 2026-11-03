@@ -5,6 +5,10 @@ import jakarta.validation.constraints.NotNull;
 
 public record RequisitionStatusUpdateRequest(
         @NotNull RequisitionStatus status,
-        String note
+        String note,
+        String expectedRevision
 ) {
+    public RequisitionStatusUpdateRequest(RequisitionStatus status, String note) {
+        this(status, note, null);
+    }
 }

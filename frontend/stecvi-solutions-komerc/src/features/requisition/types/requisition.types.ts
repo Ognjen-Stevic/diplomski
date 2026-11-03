@@ -25,6 +25,7 @@ export type RequisitionItem = {
 };
 
 export type RequisitionListItem = {
+    revision: string;
     id: number;
     salesRep: {
         id: number;

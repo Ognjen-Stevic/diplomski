@@ -1,85 +1,30 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { PeriodSelector } from "../../../shared/components/period_selector";
+import { useReportData } from "../hooks/use_report_data";
+import { useReportExport } from "../hooks/use_report_export";
 import { reportApi } from "../report_api";
-import type { MonthlyGratisReportData } from "../types/sales_report.types";
+import type { ReportViewProps } from "../types/sales_report.types";
 import { GratisReportContent } from "./gratis_report_content";
 import { ReportExportButton } from "./report_export_button";
 import { ReportFeedback } from "./report_feedback";
 
-export function MonthlyGratisReport({ salesRepId, managerId = null }: { salesRepId: number | null; managerId?: number | null }) {
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const current = new Date();
-        return new Date(current.getFullYear(), current.getMonth(), 1);
-    });
-    const [data, setData] = useState<MonthlyGratisReportData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [retryKey, setRetryKey] = useState(0);
-    const [exporting, setExporting] = useState(false);
-    const [exportError, setExportError] = useState("");
-
-    useEffect(() => {
-        const controller = new AbortController();
-        reportApi.getMonthlyGratisReport(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth() + 1,
-            salesRepId,
-            managerId,
-            controller.signal,
-        )
-            .then(setData)
-            .catch((reason: unknown) => {
-                if (!controller.signal.aborted) {
-                    setError(reason instanceof Error ? reason.message : "Izveštaj nije učitan.");
-                }
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setLoading(false);
-            });
-        return () => controller.abort();
-    }, [managerId, selectedDate, retryKey, salesRepId]);
-
-    const changePeriod = (value: Date) => {
-        setLoading(true);
-        setError("");
-        setExportError("");
-        setSelectedDate(value);
-    };
-
-    const retry = () => {
-        setLoading(true);
-        setError("");
-        setExportError("");
-        setRetryKey((key) => key + 1);
-    };
-
-    const exportExcel = async () => {
-        if (exporting) return;
-        setExporting(true);
-        setExportError("");
-        try {
-            await reportApi.downloadMonthlyGratisReport(
-                selectedDate.getFullYear(),
-                selectedDate.getMonth() + 1,
-                salesRepId,
-                managerId,
-            );
-        } catch (reason: unknown) {
-            setExportError(reason instanceof Error ? reason.message : "Excel izveštaj nije preuzet.");
-        } finally {
-            setExporting(false);
-        }
-    };
-
-    const periodLabel = new Intl.DateTimeFormat("sr-Latn-RS", {
-        month: "long",
-        year: "numeric",
-    }).format(selectedDate);
+export function MonthlyGratisReport({ salesRepId, managerId, selectedDate, onPeriodChange, onLoaded }: ReportViewProps) {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth() + 1;
+    const load = useCallback((signal: AbortSignal) =>
+        reportApi.getMonthlyGratisReport(year, month, salesRepId, managerId, signal), [year, month, salesRepId, managerId]);
+    const { data, loading, error, retry, identity } = useReportData(
+        { type: "gratis-monthly", year, month, salesRepId, managerId }, load, onLoaded,
+    );
+    const download = useCallback((signal: AbortSignal) =>
+        reportApi.downloadMonthlyGratisReport(year, month, salesRepId, managerId, signal), [year, month, salesRepId, managerId]);
+    const { exporting, exportError, exportExcel } = useReportExport(identity, download);
+    const periodLabel = new Intl.DateTimeFormat("sr-Latn-RS", { month: "long", year: "numeric" }).format(selectedDate);
 
     return (
         <div>
-            <PeriodSelector value={selectedDate} onChange={changePeriod} />
+            <PeriodSelector value={selectedDate} onChange={onPeriodChange} />
             <div className="mt-4 flex justify-end">
                 <ReportExportButton exporting={exporting} disabled={loading || Boolean(error)} onClick={exportExcel} />
             </div>

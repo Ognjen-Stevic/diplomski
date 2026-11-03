@@ -12,7 +12,10 @@ type ReportChartProps = {
 };
 
 export function ReportChart({ title, description, items, formatValue, orientation = "vertical" }: ReportChartProps) {
-    const maximum = Math.max(...items.map((item) => item.value), 1);
+    const maximum = items.reduce((maximum, item) =>
+        Number.isFinite(item.value) ? Math.max(maximum, item.value) : maximum, 0);
+    const percentage = (value: number, scale: number) =>
+        maximum > 0 && Number.isFinite(value) && value > 0 ? (value / maximum) * scale : 0;
 
     return (
         <section className="mt-6 rounded-2xl border border-dust-grey bg-white p-5 shadow-sm sm:p-6">
@@ -25,7 +28,7 @@ export function ReportChart({ title, description, items, formatValue, orientatio
                         {items.map((item) => (
                             <div key={item.label} className="flex h-full min-w-12 flex-1 flex-col items-center justify-end gap-2">
                                 <span className="text-xs font-semibold tabular-nums text-graphite/60">{formatValue(item.value)}</span>
-                                <div className="w-full max-w-14 rounded-t-lg bg-yale-blue transition hover:bg-stormy-teal" style={{ height: `${Math.max((item.value / maximum) * 82, 4)}%` }} title={`${item.label}: ${formatValue(item.value)}`} />
+                                <div className="w-full max-w-14 rounded-t-lg bg-yale-blue transition hover:bg-stormy-teal" style={{ height: `${percentage(item.value, 82)}%` }} title={`${item.label}: ${formatValue(item.value)}`} />
                                 <span className="pb-2 text-xs font-semibold text-graphite/60">{item.label}</span>
                             </div>
                         ))}
@@ -40,7 +43,7 @@ export function ReportChart({ title, description, items, formatValue, orientatio
                                 <span className="font-bold tabular-nums text-yale-blue">{formatValue(item.value)}</span>
                             </div>
                             <div className="h-3 overflow-hidden rounded-full bg-dust-grey/70">
-                                <div className="h-full rounded-full bg-stormy-teal" style={{ width: `${Math.max((item.value / maximum) * 100, 2)}%` }} />
+                                <div className="h-full rounded-full bg-stormy-teal" style={{ width: `${percentage(item.value, 100)}%` }} />
                             </div>
                         </div>
                     ))}

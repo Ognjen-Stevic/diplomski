@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { SessionScope } from "../../../shared/components/session_scope";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 
@@ -16,19 +17,25 @@ import { GoodsRequestStatusDialog } from "../components/goods_request_status_dia
 import type { GoodsRequestRecord, ProcessGoodsRequestStatus } from "../types/goods_request.types";
 import { refreshDashboardAlerts } from "../../dashboard/alert_api";
 
-export default function GoodsRequestPage() {
+export default function GoodsRequestPage() { return <SessionScope><GoodsRequestPageContent /></SessionScope>; }
+function GoodsRequestPageContent() {
     const navigate = useNavigate();
     const { user, hasPermission } = useAuth();
     const canCreate = canCreateGoodsRequest(user?.role, hasPermission);
     const canApprove = canApproveGoodsRequest(user?.role, hasPermission);
     const canRead = Boolean(user && hasPermission(PERMISSIONS.GOODS_REQUESTS_READ));
-    const { selectedDate, setSelectedDate, records, loading, error, reload } =
+    const { selectedDate, setSelectedDate, records, loading, error, reload, isCurrent, context } =
         useMonthlyGoodsRequests(canRead, user ? `${user.id}:${user.role}` : "");
-    const [pendingDecision, setPendingDecision] = useState<{
+    const [decision, setPendingDecision] = useState<{
+        context: object;
         request: GoodsRequestRecord;
         status: ProcessGoodsRequestStatus;
     } | null>(null);
-    const [submitting, setSubmitting] = useState(false);
+    const pendingDecision = decision?.context === context ? decision : null;
+    const guard = useRef(false);
+    const [submission, setSubmission] = useState({context, busy: false});
+    const submitting = submission.context === context && submission.busy;
+    const setSubmitting = (busy: boolean) => setSubmission({context, busy});
     const [processingError, setProcessingError] = useState("");
     const tableRecords = useMemo<MonthlyRequestRecord[]>(() => records.map((request) => ({
         id: request.id,
@@ -51,18 +58,21 @@ export default function GoodsRequestPage() {
     }, [submitting]);
 
     const processRequest = async () => {
-        if (!pendingDecision || submitting) return;
+        if (!pendingDecision || guard.current) return;
+        guard.current = true;
         setSubmitting(true);
         setProcessingError("");
         try {
             await goodsRequestApi.updateStatus(pendingDecision.request.id, pendingDecision.status);
+            if (!isCurrent()) return;
             setPendingDecision(null);
             reload();
             refreshDashboardAlerts();
         } catch (requestError) {
-            setProcessingError(requestError instanceof Error ? requestError.message : "Zahtev nije obrađen.");
+            if (isCurrent()) setProcessingError(requestError instanceof Error ? requestError.message : "Zahtev nije obrađen.");
         } finally {
-            setSubmitting(false);
+            guard.current = false;
+            if (isCurrent()) setSubmitting(false);
         }
     };
 
@@ -70,7 +80,7 @@ export default function GoodsRequestPage() {
         const request = recordsById.get(recordId);
         if (!request) return;
         setProcessingError("");
-        setPendingDecision({ request, status });
+        setPendingDecision({ context, request, status });
     };
 
     if (!user) return <Navigate to="/login" replace />;

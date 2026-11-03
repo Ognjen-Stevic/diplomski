@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { SessionScope } from "../../../shared/components/session_scope";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -16,6 +17,10 @@ import {
 } from "../customer_form";
 
 export default function NewCustomerPage() {
+    const { customerId } = useParams();
+    return <SessionScope><CustomerPageIdentity key={customerId ?? "new"} /></SessionScope>;
+}
+function CustomerPageIdentity() {
     const navigate = useNavigate();
     const { customerId } = useParams();
     const { user, hasPermission } = useAuth();
@@ -32,14 +37,18 @@ export default function NewCustomerPage() {
     const [loading, setLoading] = useState(isEditMode);
     const [loadError, setLoadError] = useState("");
     const [error, setError] = useState("");
+    const guard = useRef(false);
+    const mounted = useRef(false);
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         if (!user || !hasAccess || !isEditMode || !isValidId || parsedId === null) return;
 
         let active = true;
+        const controller = new AbortController();
 
-        customerApi.findById(parsedId)
+        customerApi.findById(parsedId, controller.signal)
             .then((customer) => {
                 if (active) setForm(customerToForm(customer));
             })
@@ -55,6 +64,7 @@ export default function NewCustomerPage() {
 
         return () => {
             active = false;
+            controller.abort();
         };
     }, [user, hasAccess, isEditMode, isValidId, parsedId]);
 
@@ -65,7 +75,7 @@ export default function NewCustomerPage() {
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (submitting || loading || loadError || !isValidId || !hasAccess) return;
+        if (guard.current || loading || loadError || !isValidId || !hasAccess) return;
 
         const validationError = validateCustomerForm(form);
         if (validationError) {
@@ -73,6 +83,7 @@ export default function NewCustomerPage() {
             return;
         }
 
+        guard.current = true;
         setSubmitting(true);
         setError("");
         try {
@@ -82,7 +93,7 @@ export default function NewCustomerPage() {
             } else {
                 await customerApi.create(payload);
             }
-            navigate("/kupci", { replace: true });
+            if (mounted.current) navigate("/kupci", { replace: true });
         } catch (requestError: unknown) {
             setError(
                 requestError instanceof Error
@@ -90,7 +101,8 @@ export default function NewCustomerPage() {
                     : "Došlo je do greške prilikom čuvanja kupca.",
             );
         } finally {
-            setSubmitting(false);
+            guard.current = false;
+            if (mounted.current) setSubmitting(false);
         }
     };
 

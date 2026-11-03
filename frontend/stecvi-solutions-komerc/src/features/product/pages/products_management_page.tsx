@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSessionCurrent } from "../../../shared/hooks/use_session_request";
+import { SessionScope } from "../../../shared/components/session_scope";
+import { useMemo, useRef, useState } from "react";
 import { PackageSearch, Plus, Search } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
+import { APP_ROUTES } from "../../../app/routes";
+import { useProductCatalog } from "../hooks/use_product_catalog";
 import AppLayout from "../../../app/layouts/app_layout";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { ProductDeactivationConfirmation } from "../components/product_deactivation_confirmation";
@@ -9,14 +13,16 @@ import { ProductManagementCard } from "../components/product_management_card";
 import { productManagementApi } from "../product_management_api";
 import type { ManagedProduct, ProductCreatePayload } from "../types/product_management.types";
 
-export default function ProductsManagementPage() {
+export default function ProductsManagementPage() { return <SessionScope><ProductsManagementPageContent /></SessionScope>; }
+function ProductsManagementPageContent() {
     const { user } = useAuth();
+    const isCurrent = useSessionCurrent();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [products, setProducts] = useState<ManagedProduct[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [pageError, setPageError] = useState("");
     const [formError, setFormError] = useState("");
-    const [formOpen, setFormOpen] = useState(() => searchParams.get("action") === "new");
+    const formOpen = searchParams.get("action") === "new";
+    const savingRef = useRef(false);
+    const deactivatingRef = useRef(false);
+    const [deactivationError, setDeactivationError] = useState("");
     const [saving, setSaving] = useState(false);
     const [confirmation, setConfirmation] = useState<ManagedProduct | null>(null);
     const [deactivating, setDeactivating] = useState(false);
@@ -25,31 +31,7 @@ export default function ProductsManagementPage() {
     const readOnly = user?.role === "BOOKKEEPER";
     const canViewProducts = user?.role === "CEO" || readOnly;
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        setPageError("");
-        try {
-            setProducts(await productManagementApi.findAll());
-        } catch (error) {
-            setPageError(error instanceof Error ? error.message : "Artikli nisu učitani.");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (!canViewProducts) return;
-        let active = true;
-        productManagementApi.findAll()
-            .then((result) => { if (active) setProducts(result); })
-            .catch((error: unknown) => {
-                if (active) {
-                    setPageError(error instanceof Error ? error.message : "Artikli nisu učitani.");
-                }
-            })
-            .finally(() => { if (active) setLoading(false); });
-        return () => { active = false; };
-    }, [canViewProducts]);
+    const { products, setProducts, loading, error: pageError, retry } = useProductCatalog(canViewProducts);
 
     const filtered = useMemo(() => {
         const term = search.trim().toLocaleLowerCase("sr-Latn-RS");
@@ -61,47 +43,53 @@ export default function ProductsManagementPage() {
         });
     }, [products, search, status]);
 
-    if (!user) return <Navigate to="/login" replace />;
-    if (!canViewProducts) return <Navigate to="/" replace />;
+    if (!user) return <Navigate to={APP_ROUTES.login} replace />;
+    if (!canViewProducts) return <Navigate to={APP_ROUTES.home} replace />;
 
-    const closeForm = () => {
-        setFormOpen(false);
+    const setFormOpen = (open: boolean) => {
         setSearchParams((current) => {
             const next = new URLSearchParams(current);
-            next.delete("action");
+            if (open) next.set("action", "new");
+            else next.delete("action");
             return next;
         }, { replace: true });
     };
 
     const createProduct = async (payload: ProductCreatePayload, image: File | null) => {
+        if (user.role !== "CEO" || savingRef.current) return;
+        savingRef.current = true;
         setSaving(true);
         setFormError("");
         try {
             const created = await productManagementApi.create(payload, image);
+            if (!isCurrent()) return;
             setProducts((current) => [...current, created]
                 .sort((a, b) => a.name.localeCompare(b.name, "sr-Latn-RS")));
-            closeForm();
+            setFormOpen(false);
         } catch (error) {
             setFormError(error instanceof Error ? error.message : "Artikal nije sačuvan.");
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };
 
     const deactivateProduct = async () => {
-        if (!confirmation) return;
+        if (user.role !== "CEO" || !confirmation || deactivatingRef.current) return;
+        deactivatingRef.current = true;
         setDeactivating(true);
-        setPageError("");
+        setDeactivationError("");
         try {
             const updated = await productManagementApi.deactivate(confirmation.id);
+            if (!isCurrent()) return;
             setProducts((current) => current.map((product) => (
                 product.id === updated.id ? updated : product
             )));
             setConfirmation(null);
         } catch (error) {
-            setPageError(error instanceof Error ? error.message : "Artikal nije deaktiviran.");
-            setConfirmation(null);
+            setDeactivationError(error instanceof Error ? error.message : "Artikal nije deaktiviran.");
         } finally {
+            deactivatingRef.current = false;
             setDeactivating(false);
         }
     };
@@ -159,7 +147,7 @@ export default function ProductsManagementPage() {
                 {pageError && (
                     <div role="alert" className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-red-50 px-4 py-3 text-red-700">
                         <span>{pageError}</span>
-                        <button onClick={() => void load()} className="shrink-0 font-bold hover:underline">
+                        <button onClick={() => void retry()} className="shrink-0 font-bold hover:underline">
                             Pokušaj ponovo
                         </button>
                     </div>
@@ -179,7 +167,11 @@ export default function ProductsManagementPage() {
                                 key={product.id}
                                 product={product}
                                 deactivating={deactivating && confirmation?.id === product.id}
-                                onDeactivate={() => setConfirmation(product)}
+                                onDeactivate={() => {
+                                    if (deactivatingRef.current) return;
+                                    setDeactivationError("");
+                                    setConfirmation(product);
+                                }}
                                 readOnly={readOnly}
                             />
                         ))}
@@ -191,7 +183,7 @@ export default function ProductsManagementPage() {
                 <ProductForm
                     saving={saving}
                     error={formError}
-                    onCancel={() => { if (!saving) closeForm(); }}
+                    onCancel={() => { if (!savingRef.current) setFormOpen(false); }}
                     onSubmit={createProduct}
                 />
             )}
@@ -199,7 +191,8 @@ export default function ProductsManagementPage() {
                 <ProductDeactivationConfirmation
                     product={confirmation}
                     submitting={deactivating}
-                    onCancel={() => { if (!deactivating) setConfirmation(null); }}
+                    error={deactivationError}
+                    onCancel={() => { if (!deactivatingRef.current) setConfirmation(null); }}
                     onConfirm={deactivateProduct}
                 />
             )}

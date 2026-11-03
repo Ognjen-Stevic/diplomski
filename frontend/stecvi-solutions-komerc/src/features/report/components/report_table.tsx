@@ -1,4 +1,4 @@
-import { resolveProductPictureUrl } from "../../product/product_api";
+import { resolveProductPictureUrl } from "../../../shared/utils/asset_url";
 import type { ProductReportRow } from "../types/sales_report.types";
 import { formatInteger, formatLiters, formatRsd } from "../utils/sales_report.utils";
 

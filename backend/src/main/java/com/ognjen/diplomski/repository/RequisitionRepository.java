@@ -13,6 +13,14 @@ import java.util.Set;
 
 public interface RequisitionRepository extends JpaRepository<Requisition, Long> {
 
+    // Lock only the parent row: PostgreSQL cannot lock the DISTINCT/outer-join detail query.
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.QueryHints(@jakarta.persistence.QueryHint(
+            name = "jakarta.persistence.lock.timeout", value = "0"))
+    @Query("SELECT requisition FROM Requisition requisition WHERE requisition.id = :id")
+    Optional<Requisition> findForUpdate(@Param("id") Long id);
+
+
     long countByStatus(RequisitionStatus status);
 
     long countByStatusAndSalesRepId(RequisitionStatus status, Long salesRepId);

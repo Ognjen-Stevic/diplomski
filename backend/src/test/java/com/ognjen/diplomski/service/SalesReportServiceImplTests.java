@@ -355,6 +355,42 @@ class SalesReportServiceImplTests {
         assertEquals(404, exception.getStatusCode().value());
     }
 
+    @Test
+    void companyMonthlyAndYtdIncludeBothIncentivesAndExcelMatches() throws Exception {
+        SalesReportRepository repository = mock(SalesReportRepository.class);
+        AppUserRepository users = mock(AppUserRepository.class);
+        Product product = product(1L, "TEST", "Test", "/test.png", "1.5");
+        product.setStimulationPerUnit(new BigDecimal("20"));
+        product.setManagerStimulationPerUnit(new BigDecimal("5"));
+        when(repository.findAllForReport(eq(RequisitionType.NORMAL), any(), any()))
+                .thenReturn(List.of(requisition(product, "10", "20"), requisition(product, "2", "20")));
+        SalesReportServiceImpl service = new SalesReportServiceImpl(repository, users);
+        var monthly = service.getMonthlyReport(ceoPrincipal(), 2026, 6, null, null);
+        var ytd = service.getYtdReport(ceoPrincipal(), 2026, null, null);
+        for (var summary : List.of(monthly.summary(), ytd.summary())) {
+            assertEquals(new BigDecimal("240.00"), summary.salesRepIncentive());
+            assertEquals(new BigDecimal("60.00"), summary.managerIncentive());
+            assertEquals(new BigDecimal("300.00"), summary.totalIncentive());
+        }
+        assertEquals(new BigDecimal("300.00"), monthly.products().getFirst().totalIncentive());
+        assertEquals(new BigDecimal("300.00"), ytd.products().getFirst().totalIncentive());
+        assertEquals(new BigDecimal("300.00"), ytd.monthlyIncentives().stream()
+                .map(com.ognjen.diplomski.dto.MonthlyIncentiveResponse::totalIncentive)
+                .reduce(new BigDecimal("0.00"), BigDecimal::add));
+        var excel = new com.ognjen.diplomski.service.impl.SalesReportExcelServiceImpl();
+        for (byte[] bytes : List.of(excel.createMonthlyWorkbook(monthly, "CEO", ""),
+                excel.createYtdWorkbook(ytd, "CEO", ""))) {
+            try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(bytes))) {
+                var sheet = workbook.getSheetAt(0);
+                assertEquals(300d, sheet.getRow(9).getCell(1).getNumericCellValue());
+                assertEquals(240d, sheet.getRow(10).getCell(1).getNumericCellValue());
+                assertEquals(60d, sheet.getRow(11).getCell(1).getNumericCellValue());
+                assertEquals(300d, sheet.getRow(14).getCell(6).getNumericCellValue());
+            }
+        }
+        verify(repository, never()).findTeamProductAggregates(any(), any(), any(), any());
+    }
+
     private static Product product(Long id, String code, String name, String pictureUrl, String volumeLiters) {
         Product product = new Product();
         product.setId(id);

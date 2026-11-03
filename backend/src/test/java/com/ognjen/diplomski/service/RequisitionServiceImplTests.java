@@ -116,6 +116,7 @@ class RequisitionServiceImplTests {
         RequisitionServiceImpl service = service(repository);
         Requisition draft = managerTeamRequisition(7L, RequisitionStatus.DRAFT);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(draft));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(draft));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -137,6 +138,7 @@ class RequisitionServiceImplTests {
         Requisition completed = managerTeamRequisition(7L, RequisitionStatus.COMPLETED);
         byte[] expectedPdf = {1, 2, 3};
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(completed));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(completed));
         when(pdfService.createPdf(completed)).thenReturn(expectedPdf);
         RequisitionServiceImpl service = service(repository, mock(ProductRepository.class), pdfService);
 
@@ -159,6 +161,7 @@ class RequisitionServiceImplTests {
         RequisitionPdfService pdfService = mock(RequisitionPdfService.class);
         Requisition approved = managerTeamRequisition(7L, RequisitionStatus.APPROVED);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(approved));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(approved));
         RequisitionServiceImpl service = service(repository, mock(ProductRepository.class), pdfService);
 
         ResponseStatusException unavailable = assertThrows(
@@ -183,6 +186,7 @@ class RequisitionServiceImplTests {
         Requisition completed = requisition(1L, RequisitionStatus.COMPLETED);
         byte[] pdf = {1, 2, 3};
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(completed));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(completed));
         when(pdfService.createPdf(completed)).thenReturn(pdf);
         RequisitionServiceImpl service = service(
                 repository,
@@ -214,6 +218,7 @@ class RequisitionServiceImplTests {
         RequisitionEmailService emailService = mock(RequisitionEmailService.class);
         Requisition approved = requisition(1L, RequisitionStatus.APPROVED);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(approved));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(approved));
         RequisitionServiceImpl service = service(
                 repository,
                 mock(ProductRepository.class),
@@ -261,6 +266,7 @@ class RequisitionServiceImplTests {
         RequisitionServiceImpl service = service(repository);
         Requisition submitted = managerTeamRequisition(7L, RequisitionStatus.SUBMITTED);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(submitted));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(submitted));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -282,7 +288,9 @@ class RequisitionServiceImplTests {
         Requisition approved = requisition(1L, RequisitionStatus.APPROVED);
         Requisition processing = requisition(2L, RequisitionStatus.PROCESSING);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(approved));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(approved));
         when(repository.findDetailedById(2L)).thenReturn(Optional.of(processing));
+        when(repository.findForUpdate(2L)).thenReturn(Optional.of(processing));
 
         var approvedResponse = service.findById(principal(30L, "ROLE_BOOKKEEPER"), 1L);
         var processingResponse = service.findById(principal(30L, "ROLE_BOOKKEEPER"), 2L);
@@ -322,6 +330,7 @@ class RequisitionServiceImplTests {
             RequisitionServiceImpl service = service(repository);
             Requisition processing = requisition(1L, RequisitionStatus.PROCESSING);
             when(repository.findDetailedById(1L)).thenReturn(Optional.of(processing));
+            when(repository.findForUpdate(1L)).thenReturn(Optional.of(processing));
 
             ResponseStatusException exception = assertThrows(
                     ResponseStatusException.class,
@@ -347,6 +356,7 @@ class RequisitionServiceImplTests {
             RequisitionServiceImpl service = service(repository);
             Requisition approved = requisition(1L, RequisitionStatus.APPROVED);
             when(repository.findDetailedById(1L)).thenReturn(Optional.of(approved));
+            when(repository.findForUpdate(1L)).thenReturn(Optional.of(approved));
             when(repository.saveAndFlush(approved)).thenReturn(approved);
 
             var response = service.updateStatus(
@@ -367,6 +377,7 @@ class RequisitionServiceImplTests {
         RequisitionServiceImpl service = service(repository);
         Requisition processing = managerTeamRequisition(7L, RequisitionStatus.PROCESSING);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(processing));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(processing));
         when(repository.saveAndFlush(processing)).thenReturn(processing);
 
         service.updateStatus(
@@ -395,6 +406,7 @@ class RequisitionServiceImplTests {
         RequisitionServiceImpl service = service(repository);
         Requisition processing = requisition(1L, RequisitionStatus.PROCESSING);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(processing));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(processing));
         when(repository.saveAndFlush(processing)).thenReturn(processing);
 
         var response = service.updateStatus(
@@ -416,6 +428,7 @@ class RequisitionServiceImplTests {
         RequisitionServiceImpl service = service(repository);
         Requisition processing = requisition(1L, RequisitionStatus.PROCESSING);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(processing));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(processing));
         when(repository.saveAndFlush(processing)).thenReturn(processing);
 
         var response = service.updateStatus(
@@ -610,6 +623,7 @@ class RequisitionServiceImplTests {
         ProductRepository productRepository = mock(ProductRepository.class);
         Requisition requisition = requisition(1L, RequisitionStatus.DRAFT);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(requisition));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -681,6 +695,7 @@ class RequisitionServiceImplTests {
         ProductRepository productRepository = mock(ProductRepository.class);
         Requisition requisition = managerTeamRequisition(99L, RequisitionStatus.SUBMITTED);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(requisition));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -702,6 +717,7 @@ class RequisitionServiceImplTests {
         ProductRepository productRepository = mock(ProductRepository.class);
         Requisition requisition = managerTeamRequisition(7L, RequisitionStatus.APPROVED);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(requisition));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -752,6 +768,89 @@ class RequisitionServiceImplTests {
         );
     }
 
+    @Test
+    void conflictingStatusDecisionChecksLockedCurrentState() {
+        var repository = mock(RequisitionRepository.class);
+        var requisition = managerTeamRequisition(7L, RequisitionStatus.SUBMITTED);
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
+        when(repository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var service = service(repository);
+        String revision = com.ognjen.diplomski.service.RequisitionRevision.of(requisition);
+        service.updateStatus(principal(7L, "ROLE_MANAGER"), 1L,
+                new RequisitionStatusUpdateRequest(RequisitionStatus.APPROVED, null, revision));
+        var conflict = assertThrows(ResponseStatusException.class, () -> service.updateStatus(
+                principal(7L, "ROLE_MANAGER"), 1L,
+                new RequisitionStatusUpdateRequest(RequisitionStatus.REJECTED, "Reason", revision)));
+        assertEquals(409, conflict.getStatusCode().value());
+        assertEquals(RequisitionStatus.APPROVED, requisition.getStatus());
+        verify(repository, times(2)).findForUpdate(1L);
+        verify(repository, never()).findDetailedById(any());
+        verify(repository, times(1)).saveAndFlush(any());
+    }
+
+    @Test
+    void staleEditCannotOverwriteAnotherEditOrStatusDecision() {
+        var repository = mock(RequisitionRepository.class);
+        var products = mock(ProductRepository.class);
+        var requisition = managerTeamRequisition(7L, RequisitionStatus.SUBMITTED);
+        var product = product(1L, "P001", "2");
+        requisition.getItems().add(item(1L, requisition, product, "1"));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
+        String oldRevision = com.ognjen.diplomski.service.RequisitionRevision.of(requisition);
+        requisition.setNote("Saved by another user");
+        var service = service(repository, products, mock(RequisitionPdfService.class));
+        var request = new RequisitionRequest(100L, RequisitionType.NORMAL, null, null, "Old edit",
+                List.of(new RequisitionItemRequest("P001", new BigDecimal("2"))), oldRevision);
+        assertEquals(409, assertThrows(ResponseStatusException.class, () ->
+                service.update(principal(7L, "ROLE_MANAGER"), 1L, request)).getStatusCode().value());
+        assertEquals("Saved by another user", requisition.getNote());
+        assertEquals(new BigDecimal("1"), requisition.getItems().getFirst().getQuantity());
+        requisition.setStatus(RequisitionStatus.APPROVED);
+        assertEquals(409, assertThrows(ResponseStatusException.class, () ->
+                service.update(principal(7L, "ROLE_MANAGER"), 1L, request)).getStatusCode().value());
+        verifyNoInteractions(products);
+        verify(repository, never()).flush();
+    }
+
+    @Test
+    void editBeforeStatusDecisionInvalidatesItsRevision() {
+        var repository = mock(RequisitionRepository.class);
+        var requisition = managerTeamRequisition(7L, RequisitionStatus.SUBMITTED);
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
+        String revision = com.ognjen.diplomski.service.RequisitionRevision.of(requisition);
+        requisition.setNote("Edited after confirmation was opened");
+        var conflict = assertThrows(ResponseStatusException.class, () -> service(repository).updateStatus(
+                principal(7L, "ROLE_MANAGER"), 1L,
+                new RequisitionStatusUpdateRequest(RequisitionStatus.APPROVED, null, revision)));
+        assertEquals(409, conflict.getStatusCode().value());
+        assertEquals(RequisitionStatus.SUBMITTED, requisition.getStatus());
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void lockContentionReturnsConflictBeforeAnyChanges() {
+        var repository = mock(RequisitionRepository.class);
+        when(repository.findForUpdate(1L)).thenThrow(
+                new org.springframework.dao.CannotAcquireLockException("busy"));
+        var exception = assertThrows(ResponseStatusException.class, () -> service(repository).updateStatus(
+                principal(7L, "ROLE_MANAGER"), 1L,
+                new RequisitionStatusUpdateRequest(RequisitionStatus.APPROVED, null)));
+        assertEquals(409, exception.getStatusCode().value());
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void mutationLookupLocksOnlyParentAndDoesNotWait() throws Exception {
+        var method = RequisitionRepository.class.getMethod("findForUpdate", Long.class);
+        assertEquals(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE,
+                method.getAnnotation(org.springframework.data.jpa.repository.Lock.class).value());
+        var hints = method.getAnnotation(org.springframework.data.jpa.repository.QueryHints.class).value();
+        assertEquals("jakarta.persistence.lock.timeout", hints[0].name());
+        assertEquals("0", hints[0].value());
+        String query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class).value();
+        assertTrue(!query.contains("JOIN") && !query.contains("DISTINCT"));
+    }
+
     private static void prepareUpdate(
             RequisitionRepository repository,
             ProductRepository productRepository,
@@ -759,6 +858,7 @@ class RequisitionServiceImplTests {
             List<Product> products
     ) {
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(requisition));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
         when(productRepository.findAllByCodeIn(any())).thenReturn(products);
     }
 

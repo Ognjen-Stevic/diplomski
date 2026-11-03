@@ -51,7 +51,9 @@ export async function apiRequest<T>(
     const response = await authenticatedFetch(path, {
         ...init,
         headers: {
-            ...(init.body ? { "Content-Type": "application/json" } : {}),
+            ...(init.body && !(init.body instanceof FormData)
+                ? { "Content-Type": "application/json" }
+                : {}),
             ...init.headers,
         },
     });

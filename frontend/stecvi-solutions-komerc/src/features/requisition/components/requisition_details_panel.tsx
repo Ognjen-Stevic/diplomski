@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { RequisitionEmailDialog } from "./requisition_email_dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, FilePenLine, Mail, Package, X } from "lucide-react";
 
 import { useAuth } from "../../auth/hooks/useAuth";
 import type { RequisitionListItem, RequisitionStatus } from "../types/requisition.types";
-import { REQUISITION_STATUS_LABELS } from "../data/requisition.data";
+import { REQUISITION_STATUS_LABELS, GRATIS_REASON_LABELS } from "../data/requisition.data";
 import { requisitionApi } from "../requisition_api";
 import { RequisitionStatusControl } from "./requisition_status_control";
 
@@ -15,13 +16,6 @@ const formatDate = (date: string) => new Intl.DateTimeFormat("sr-Latn-RS", {
     minute: "2-digit",
 }).format(new Date(date));
 
-const GRATIS_REASON_LABELS = {
-    LISTING: "Za ulistavanje",
-    CONSUMPTION: "Za potrošnju",
-    GIFT: "Poklon",
-    OTHER: "Drugo",
-} as const;
-
 export function RequisitionDetailsPanel({ requisition, onClose, onEdit, onStatusChange }: {
     requisition: RequisitionListItem;
     onClose: () => void;
@@ -32,21 +26,14 @@ export function RequisitionDetailsPanel({ requisition, onClose, onEdit, onStatus
     const [downloadingPdf, setDownloadingPdf] = useState(false);
     const [pdfError, setPdfError] = useState("");
     const [emailModalOpen, setEmailModalOpen] = useState(false);
-    const [emailRecipient, setEmailRecipient] = useState<"SALES_REP" | "CUSTOMER">("SALES_REP");
-    const [sendingEmail, setSendingEmail] = useState(false);
-    const [emailFeedback, setEmailFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
-    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+    const pdfInFlight = useRef(false);
+    const pdfRequest = useRef<AbortController | null>(null);
+    useEffect(() => () => { pdfRequest.current?.abort(); }, []);
+    const closeEmailModal = useCallback(() => setEmailModalOpen(false), []);
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return;
-            if (emailModalOpen) {
-                if (!sendingEmail) {
-                    setEmailModalOpen(false);
-                    setEmailFeedback(null);
-                }
-                return;
-            }
+            if (emailModalOpen) return;
             onClose();
         };
         document.addEventListener("keydown", handleKeyDown);
@@ -55,42 +42,7 @@ export function RequisitionDetailsPanel({ requisition, onClose, onEdit, onStatus
             document.removeEventListener("keydown", handleKeyDown);
             document.body.style.overflow = "";
         };
-    }, [emailModalOpen, onClose, sendingEmail]);
-
-    useEffect(() => () => {
-        if (closeTimer.current) clearTimeout(closeTimer.current);
-    }, []);
-
-    const closeEmailModal = () => {
-        if (sendingEmail) return;
-        if (closeTimer.current) clearTimeout(closeTimer.current);
-        setEmailModalOpen(false);
-        setEmailFeedback(null);
-    };
-
-    const sendEmail = async () => {
-        setSendingEmail(true);
-        setEmailFeedback(null);
-        try {
-            await requisitionApi.sendPdfByEmail(requisition.id, emailRecipient);
-            setEmailFeedback({ type: "success", message: "E-mail je uspešno poslat." });
-            closeTimer.current = setTimeout(() => {
-                setEmailModalOpen(false);
-                setEmailFeedback(null);
-            }, 1400);
-        } catch (error) {
-            setEmailFeedback({
-                type: "error",
-                message: error instanceof Error ? error.message : "E-mail nije poslat.",
-            });
-            closeTimer.current = setTimeout(() => {
-                setEmailModalOpen(false);
-                setEmailFeedback(null);
-            }, 2500);
-        } finally {
-            setSendingEmail(false);
-        }
-    };
+    }, [emailModalOpen, onClose]);
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end bg-graphite/45" role="dialog" aria-modal="true" aria-labelledby="requisition-details-title">
@@ -121,13 +73,18 @@ export function RequisitionDetailsPanel({ requisition, onClose, onEdit, onStatus
                         type="button"
                         disabled={requisition.status !== "completed" || downloadingPdf}
                         onClick={async () => {
+                            if (pdfInFlight.current) return;
+                            pdfInFlight.current = true;
+                            const controller = new AbortController();
+                            pdfRequest.current = controller;
                             setDownloadingPdf(true);
                             setPdfError("");
                             try {
-                                await requisitionApi.downloadPdf(requisition.id);
+                                await requisitionApi.downloadPdf(requisition.id, controller.signal);
                             } catch (error) {
                                 setPdfError(error instanceof Error ? error.message : "PDF trebovanja nije preuzet.");
                             } finally {
+                                pdfInFlight.current = false;
                                 setDownloadingPdf(false);
                             }
                         }}
@@ -142,8 +99,6 @@ export function RequisitionDetailsPanel({ requisition, onClose, onEdit, onStatus
                             type="button"
                             disabled={requisition.status !== "completed"}
                             onClick={() => {
-                                setEmailRecipient("SALES_REP");
-                                setEmailFeedback(null);
                                 setEmailModalOpen(true);
                             }}
                             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yale-blue px-4 py-3 font-semibold text-white transition hover:bg-stormy-teal focus:outline-none focus:ring-2 focus:ring-stormy-teal focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
@@ -179,76 +134,7 @@ export function RequisitionDetailsPanel({ requisition, onClose, onEdit, onStatus
                     />
                 )}
             </section>
-            {emailModalOpen && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-graphite/55 p-4">
-                    <section
-                        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="email-recipient-title"
-                    >
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <h3 id="email-recipient-title" className="text-xl font-bold text-yale-blue">Pošalji trebovanje</h3>
-                                <p className="mt-1 text-sm text-graphite/60">Izaberite primaoca PDF dokumenta.</p>
-                            </div>
-                            <button type="button" onClick={closeEmailModal} disabled={sendingEmail} aria-label="Zatvori" className="rounded-xl p-2 text-graphite hover:bg-dust-grey/35 disabled:opacity-50"><X className="h-5 w-5" /></button>
-                        </div>
-
-                        <div className="mt-5 space-y-3">
-                            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-dust-grey p-4 transition hover:border-stormy-teal">
-                                <input
-                                    type="radio"
-                                    name="email-recipient"
-                                    value="SALES_REP"
-                                    checked={emailRecipient === "SALES_REP"}
-                                    onChange={() => setEmailRecipient("SALES_REP")}
-                                    className="mt-1"
-                                />
-                                <span>
-                                    <span className="block font-semibold text-graphite">Komercijalista</span>
-                                    <span className="mt-1 block text-sm text-graphite/65">{requisition.salesRep.email}</span>
-                                </span>
-                            </label>
-                            <label className={`flex items-start gap-3 rounded-xl border border-dust-grey p-4 ${requisition.buyerEmail ? "cursor-pointer transition hover:border-stormy-teal" : "cursor-not-allowed bg-dust-grey/20 opacity-65"}`}>
-                                <input
-                                    type="radio"
-                                    name="email-recipient"
-                                    value="CUSTOMER"
-                                    checked={emailRecipient === "CUSTOMER"}
-                                    disabled={!requisition.buyerEmail}
-                                    onChange={() => setEmailRecipient("CUSTOMER")}
-                                    className="mt-1"
-                                />
-                                <span>
-                                    <span className="block font-semibold text-graphite">Kupac</span>
-                                    <span className="mt-1 block text-sm text-graphite/65">
-                                        {requisition.buyerEmail ?? "Kupac nema e-mail adresu."}
-                                    </span>
-                                </span>
-                            </label>
-                        </div>
-
-                        {emailFeedback && (
-                            <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm ${emailFeedback.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-700"}`}>
-                                {emailFeedback.message}
-                            </p>
-                        )}
-
-                        <div className="mt-6 flex justify-end gap-3">
-                            <button type="button" onClick={closeEmailModal} disabled={sendingEmail} className="rounded-xl border border-dust-grey px-5 py-3 font-semibold text-graphite disabled:opacity-50">Otkaži</button>
-                            <button
-                                type="button"
-                                onClick={sendEmail}
-                                disabled={sendingEmail || emailFeedback !== null || (emailRecipient === "CUSTOMER" && !requisition.buyerEmail)}
-                                className="rounded-xl bg-yale-blue px-5 py-3 font-semibold text-white transition hover:bg-stormy-teal disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {sendingEmail ? "Slanje..." : "Pošalji"}
-                            </button>
-                        </div>
-                    </section>
-                </div>
-            )}
+            {emailModalOpen && <RequisitionEmailDialog key={requisition.id} requisition={requisition} onClose={closeEmailModal} />}
         </div>
     );
 }

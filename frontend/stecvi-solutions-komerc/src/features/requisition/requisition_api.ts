@@ -1,4 +1,6 @@
-import { authenticatedFetch } from "../../app/api/http_client";
+import { authApi } from "../auth/auth_api";
+import { refreshDashboardAlerts } from "../dashboard/alert_api";
+import { apiRequest, authenticatedFetch } from "../../app/api/http_client";
 import type { RequisitionListItem } from "./types/requisition.types";
 
 type ApiRequisitionStatus =
@@ -14,6 +16,7 @@ type ApiRequisitionStatus =
 
 type ApiRequisition = {
     id: number;
+    revision: string;
     salesRep: { id: number; firstName: string; lastName: string; email: string };
     buyer: { id: number; objectName: string; companyName: string; email: string | null };
     type: "NORMAL" | "GRATIS";
@@ -45,6 +48,7 @@ type ApiMonthlyRequisition = {
 };
 
 export type CreateRequisitionRequest = {
+    expectedRevision?: string;
     customerId: number;
     type: "NORMAL" | "GRATIS";
     gratisReason: ApiRequisition["gratisReason"];
@@ -60,27 +64,16 @@ export type MonthlyRequisition = {
     requisitions: RequisitionListItem[];
 };
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await authenticatedFetch(path, {
-        ...init,
-        headers: {
-            ...(init?.body ? { "Content-Type": "application/json" } : {}),
-            ...init?.headers,
-        },
-    });
-    if (!response.ok) {
-        let message = "Zahtev nije uspeo.";
-        try {
-            const body = await response.json() as { message?: string; detail?: string };
-            message = body.message ?? body.detail ?? message;
-        } catch { /* Use the fallback for non-JSON responses. */ }
-        throw new Error(message);
-    }
-    return response.status === 204 ? undefined as T : response.json() as Promise<T>;
+async function mutate<T>(path: string, init: RequestInit): Promise<T> {
+    const token = authApi.getToken();
+    const result = await apiRequest<T>(path, init);
+    if (authApi.getToken() === token) refreshDashboardAlerts();
+    return result;
 }
 
-async function downloadPdf(requisitionId: number): Promise<void> {
-    const response = await authenticatedFetch(`/api/requisitions/${requisitionId}/pdf`);
+async function downloadPdf(requisitionId: number, signal?: AbortSignal): Promise<void> {
+    const token = authApi.getToken();
+    const response = await authenticatedFetch(`/api/requisitions/${requisitionId}/pdf`, { signal });
     if (!response.ok) {
         let message = "PDF trebovanja nije preuzet.";
         try {
@@ -104,20 +97,27 @@ async function downloadPdf(requisitionId: number): Promise<void> {
         filename = plainFilename;
     }
 
-    const objectUrl = URL.createObjectURL(await response.blob());
+    const blob = await response.blob();
+    signal?.throwIfAborted();
+    if (authApi.getToken() !== token) throw new DOMException("Session changed", "AbortError");
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(objectUrl);
+    try {
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+    } finally {
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    }
 }
 
 function toRequisition(requisition: ApiRequisition): RequisitionListItem {
     const totalQuantity = requisition.items.reduce((total, item) => total + Number(item.quantity), 0);
     return {
         id: requisition.id,
+        revision: requisition.revision,
         salesRep: requisition.salesRep,
         buyerId: requisition.buyer.id,
         buyerName: requisition.buyer.objectName,
@@ -144,13 +144,13 @@ function toRequisition(requisition: ApiRequisition): RequisitionListItem {
 
 export const requisitionApi = {
     async create(payload: CreateRequisitionRequest) {
-        return request<ApiRequisition>("/api/requisitions", { method: "POST", body: JSON.stringify(payload) });
+        return mutate<ApiRequisition>("/api/requisitions", { method: "POST", body: JSON.stringify(payload) });
     },
-    async findById(requisitionId: number): Promise<RequisitionListItem> {
-        return toRequisition(await request<ApiRequisition>(`/api/requisitions/${requisitionId}`));
+    async findById(requisitionId: number, signal?: AbortSignal): Promise<RequisitionListItem> {
+        return toRequisition(await apiRequest<ApiRequisition>(`/api/requisitions/${requisitionId}`, { signal }));
     },
     async update(requisitionId: number, payload: CreateRequisitionRequest): Promise<RequisitionListItem> {
-        return toRequisition(await request<ApiRequisition>(`/api/requisitions/${requisitionId}`, {
+        return toRequisition(await mutate<ApiRequisition>(`/api/requisitions/${requisitionId}`, {
             method: "PUT",
             body: JSON.stringify(payload),
         }));
@@ -159,15 +159,16 @@ export const requisitionApi = {
         requisitionId: number,
         status: RequisitionListItem["status"],
         note: string | null,
+        expectedRevision?: string,
     ): Promise<RequisitionListItem> {
-        return toRequisition(await request<ApiRequisition>(`/api/requisitions/${requisitionId}/status`, {
+        return toRequisition(await mutate<ApiRequisition>(`/api/requisitions/${requisitionId}/status`, {
             method: "PATCH",
-            body: JSON.stringify({ status: status.toUpperCase(), note }),
+            body: JSON.stringify({ status: status.toUpperCase(), note, expectedRevision }),
         }));
     },
     downloadPdf,
     async sendPdfByEmail(requisitionId: number, recipient: "SALES_REP" | "CUSTOMER"): Promise<void> {
-        await request<void>(`/api/requisitions/${requisitionId}/email`, {
+        await apiRequest<void>(`/api/requisitions/${requisitionId}/email`, {
             method: "POST",
             body: JSON.stringify({ recipient }),
         });
@@ -177,15 +178,16 @@ export const requisitionApi = {
         month: number,
         signal?: AbortSignal,
     ): Promise<MonthlyRequisition> {
-        const result = await request<ApiMonthlyRequisition>(
+        const result = await apiRequest<ApiMonthlyRequisition>(
             `/api/requisitions?year=${year}&month=${month}`,
             { signal },
         );
         return { ...result, requisitions: result.requisitions.map(toRequisition) };
     },
-    async getMonthlyCustomerRequisitions(customerId: number, year: number, month: number): Promise<MonthlyRequisition> {
-        const result = await request<ApiMonthlyRequisition>(
+    async getMonthlyCustomerRequisitions(customerId: number, year: number, month: number, signal?: AbortSignal): Promise<MonthlyRequisition> {
+        const result = await apiRequest<ApiMonthlyRequisition>(
             `/api/requisitions/customer/${customerId}?year=${year}&month=${month}`,
+            { signal },
         );
         return { ...result, requisitions: result.requisitions.map(toRequisition) };
     },

@@ -1,3 +1,5 @@
+import { useSessionCurrent } from "../../../shared/hooks/use_session_request";
+import { SessionScope } from "../../../shared/components/session_scope";
 import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -7,7 +9,7 @@ import { APP_ROUTES } from "../../../app/routes";
 import { ProductRequestForm } from "../../../shared/components/product_request/product_request_form";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { canCreateGoodsRequest } from "../../../roles/access_control";
-import { useProducts } from "../../../shared/hooks/use_products";
+import { useProducts } from "../../product/hooks/use_products";
 import { useAvailableAdvertisingMaterials } from "../../advertising_materials/hooks/use_available_advertising_materials";
 import type { RequestCatalogItem } from "../../../shared/types/request_catalog_item";
 import type { Product } from "../../../shared/types/product";
@@ -17,8 +19,10 @@ type RequestKind = "products" | "advertising-materials";
 type AdvertisingMaterialRequestItem = RequestCatalogItem & { materialId: number };
 type GoodsRequestCatalogItem = Product | AdvertisingMaterialRequestItem;
 
-export default function NewGoodsRequestPage() {
+export default function NewGoodsRequestPage() { return <SessionScope><NewGoodsRequestPageContent /></SessionScope>; }
+function NewGoodsRequestPageContent() {
     const navigate = useNavigate();
+    const isCurrent = useSessionCurrent();
     const { user, hasPermission } = useAuth();
     const [requestKind, setRequestKind] = useState<RequestKind>("products");
     const canCreate = canCreateGoodsRequest(user?.role, hasPermission);
@@ -127,7 +131,7 @@ export default function NewGoodsRequestPage() {
                                     ),
                                     note,
                                 });
-                                navigate(APP_ROUTES.goodsRequests);
+                                if (isCurrent()) navigate(APP_ROUTES.goodsRequests);
                             }}
                         />
                     )}

@@ -1,5 +1,7 @@
 package com.ognjen.diplomski.service.impl;
 
+import com.ognjen.diplomski.exception.InvalidRequestException;
+
 import com.ognjen.diplomski.dto.AdvertisingMaterialResponse;
 import com.ognjen.diplomski.dto.AdvertisingMaterialDistributionResponse;
 import com.ognjen.diplomski.dto.CreateAdvertisingMaterialDistributionRequest;
@@ -71,7 +73,7 @@ public class AdvertisingMaterialServiceImpl implements AdvertisingMaterialServic
         requireCeo(principal);
         if (request == null || request.name() == null || request.name().isBlank()
                 || request.name().trim().length() > 150) {
-            throw new IllegalArgumentException(
+            throw new InvalidRequestException(
                     "Naziv je obavezan i može imati najviše 150 karaktera."
             );
         }
@@ -98,7 +100,7 @@ public class AdvertisingMaterialServiceImpl implements AdvertisingMaterialServic
             AdvertisingMaterialActiveRequest request
     ) {
         requireCeo(principal);
-        if (request == null) throw new IllegalArgumentException("Request body is required");
+        if (request == null || request.active() == null) throw new InvalidRequestException("Active value is required");
         AdvertisingMaterial material = advertisingMaterialRepository.findById(materialId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,

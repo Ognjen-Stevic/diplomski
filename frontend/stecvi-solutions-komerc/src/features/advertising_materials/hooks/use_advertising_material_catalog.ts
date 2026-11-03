@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useSessionRequest } from "../../../shared/hooks/use_session_request";
+import { useCallback } from "react";
 
 import { advertisingMaterialApi } from "../api/advertising_material_api";
 import type { AdvertisingMaterial } from "../types/advertising_material.types";
@@ -9,35 +10,11 @@ const sortByName = (materials: AdvertisingMaterial[]) =>
     );
 
 export function useAdvertisingMaterialCatalog(enabled: boolean) {
-    const [materials, setMaterials] = useState<AdvertisingMaterial[]>([]);
-    const [loading, setLoading] = useState(enabled);
-    const [error, setError] = useState("");
-
-    const load = useCallback(async (signal?: AbortSignal) => {
-        setLoading(true);
-        setError("");
-        try {
-            const result = await advertisingMaterialApi.getAdvertisingMaterialCatalog(signal);
-            setMaterials(sortByName(result));
-        } catch (requestError) {
-            if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-            setError(
-                requestError instanceof Error
-                    ? requestError.message
-                    : "Reklamni materijal nije učitan.",
-            );
-        } finally {
-            if (!signal?.aborted) setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (!enabled) return;
-        const controller = new AbortController();
-        void Promise.resolve().then(() => load(controller.signal));
-        return () => controller.abort();
-    }, [enabled, load]);
-
+    const load = useCallback((signal: AbortSignal) => advertisingMaterialApi.getAdvertisingMaterialCatalog(signal), []);
+    const query = useSessionRequest("material-catalog", load, enabled);
+    const materials = query.data ?? [];
+    const { loading, error } = query;
+    const setMaterials = query.updateData;
     const createAdvertisingMaterial = async (name: string) => {
         const normalizedName = name.trim();
         if (!normalizedName) throw new Error("Naziv reklamnog materijala je obavezan.");
@@ -63,8 +40,8 @@ export function useAdvertisingMaterialCatalog(enabled: boolean) {
         materials,
         loading,
         error,
-        clearError: () => setError(""),
-        reload: () => load(),
+        clearError: query.reload,
+        reload: query.reload,
         createAdvertisingMaterial,
         setAdvertisingMaterialActive,
     };

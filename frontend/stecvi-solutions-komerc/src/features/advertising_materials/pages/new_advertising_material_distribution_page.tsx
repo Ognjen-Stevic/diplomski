@@ -1,3 +1,5 @@
+import { useSessionCurrent } from "../../../shared/hooks/use_session_request";
+import { SessionScope } from "../../../shared/components/session_scope";
 import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
@@ -17,8 +19,10 @@ type AdvertisingMaterialRequestItem = RequestCatalogItem & {
     materialId: number;
 };
 
-export default function NewAdvertisingMaterialDistributionPage() {
+export default function NewAdvertisingMaterialDistributionPage() { return <SessionScope><NewAdvertisingMaterialDistributionPageContent /></SessionScope>; }
+function NewAdvertisingMaterialDistributionPageContent() {
     const navigate = useNavigate();
+    const isCurrent = useSessionCurrent();
     const { user, hasPermission } = useAuth();
     const canCreate = canAssignAdvertisingMaterial(user?.role, hasPermission);
     const availableMaterials = useAvailableAdvertisingMaterials(canCreate);
@@ -107,10 +111,12 @@ export default function NewAdvertisingMaterialDistributionPage() {
                                         })),
                                         note,
                                     });
-                                navigate(APP_ROUTES.advertisingMaterials, { replace: true });
+                                if (isCurrent()) navigate(APP_ROUTES.advertisingMaterials, { replace: true });
                             }}
                         >
-                            <CustomerSelector
+                            {customerSelector.loading && <p role="status">Učitavanje kupca...</p>}
+                        {customerSelector.error && <p role="alert" className="text-red-700">{customerSelector.error}</p>}
+                        <CustomerSelector
                                 selectedCustomer={customerSelector.selectedCustomer}
                                 matchingCustomers={customerSelector.matchingCustomers}
                                 search={customerSelector.customerSearch}

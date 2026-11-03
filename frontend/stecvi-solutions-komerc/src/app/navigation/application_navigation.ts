@@ -1,5 +1,6 @@
 import {
     BarChart3,
+    BrainCircuit,
     Box,
     ClipboardList,
     Home,
@@ -46,6 +47,14 @@ export const applicationNavigation = [
         route: APP_ROUTES.reports,
         icon: BarChart3,
         permission: PERMISSIONS.SALES_REPORTS_READ,
+    },
+    {
+        id: "ai-analytics",
+        label: "AI Analytics",
+        route: APP_ROUTES.ai,
+        icon: BrainCircuit,
+        permission: PERMISSIONS.CUSTOMERS_READ,
+        roles: ["SALES_REP", "MANAGER", "CEO"],
     },
     {
         id: "team",

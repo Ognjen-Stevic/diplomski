@@ -1,5 +1,7 @@
 package com.ognjen.diplomski.service.impl;
 
+import com.ognjen.diplomski.exception.InvalidRequestException;
+
 import com.ognjen.diplomski.dto.ProductCreateRequest;
 import com.ognjen.diplomski.dto.ProductManagementResponse;
 import com.ognjen.diplomski.dto.ProductResponse;
@@ -116,7 +118,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private static void validateCreateRequest(ProductCreateRequest request) {
-        if (request == null) throw new IllegalArgumentException("Request body is required");
+        if (request == null) throw new InvalidRequestException("Request body is required");
         requireText(request.name(), "Naziv", 200);
         requireText(request.code(), "Šifra", 100);
         requirePositive(request.price(), "Cena");
@@ -126,36 +128,36 @@ public class ProductServiceImpl implements ProductService {
         if (request.price().scale() > 2
                 || request.stimulationPerUnit().scale() > 2
                 || request.managerStimulationPerUnit().scale() > 2) {
-            throw new IllegalArgumentException("Novčane vrednosti mogu imati najviše dve decimale");
+            throw new InvalidRequestException("Novčane vrednosti mogu imati najviše dve decimale");
         }
         if (integerDigits(request.price()) > 8
                 || integerDigits(request.stimulationPerUnit()) > 8
                 || integerDigits(request.managerStimulationPerUnit()) > 8) {
-            throw new IllegalArgumentException("Novčane vrednosti su prevelike");
+            throw new InvalidRequestException("Novčane vrednosti su prevelike");
         }
         if (request.volumeLiters().scale() > 3) {
-            throw new IllegalArgumentException("Zapremina može imati najviše tri decimale");
+            throw new InvalidRequestException("Zapremina može imati najviše tri decimale");
         }
         if (integerDigits(request.volumeLiters()) > 7) {
-            throw new IllegalArgumentException("Zapremina je prevelika");
+            throw new InvalidRequestException("Zapremina je prevelika");
         }
     }
 
     private static void requireText(String value, String field, int maxLength) {
         if (value == null || value.isBlank() || value.trim().length() > maxLength) {
-            throw new IllegalArgumentException(field + " je obavezna i može imati najviše " + maxLength + " karaktera");
+            throw new InvalidRequestException(field + " je obavezna i može imati najviše " + maxLength + " karaktera");
         }
     }
 
     private static void requirePositive(BigDecimal value, String field) {
         if (value == null || value.signum() <= 0) {
-            throw new IllegalArgumentException(field + " mora biti veća od nule");
+            throw new InvalidRequestException(field + " mora biti veća od nule");
         }
     }
 
     private static void requireNonNegative(BigDecimal value, String field) {
         if (value == null || value.signum() < 0) {
-            throw new IllegalArgumentException(field + " ne može biti negativna");
+            throw new InvalidRequestException(field + " ne može biti negativna");
         }
     }
 

@@ -1,5 +1,21 @@
 export type ReportType = "monthly" | "ytd" | "gratis-monthly" | "gratis-ytd";
 
+export type ReportRequest = {
+    type: ReportType;
+    year: number;
+    month: number | null;
+    salesRepId: number | null;
+    managerId: number | null;
+};
+
+export type ReportViewProps = {
+    salesRepId: number | null;
+    managerId: number | null;
+    selectedDate: Date;
+    onPeriodChange: (date: Date) => void;
+    onLoaded: (data: { salesRep?: ReportSalesRepresentative | null }) => void;
+};
+
 export type ReportSummary = {
     id: string;
     label: string;
@@ -35,7 +51,10 @@ export type ReportSalesRepresentative = {
     lastName: string;
 };
 
+export type SalesMetrics = { totalBottles: number; totalJugs: number; totalLiters: number; totalIncentive: number; salesRepIncentive?: number; managerIncentive?: number };
+
 export type MonthlyReportData = {
+    metrics: SalesMetrics;
     salesRep: ReportSalesRepresentative | null;
     summary: ReportSummary[];
     products: ProductReportRow[];
@@ -46,6 +65,7 @@ export type YtdReportData = MonthlyReportData & {
 };
 
 export type GratisReportData = {
+    salesRep?: ReportSalesRepresentative | null;
     summary: ReportSummary[];
     products: ProductReportRow[];
     reasons: GratisReasonChartItem[];

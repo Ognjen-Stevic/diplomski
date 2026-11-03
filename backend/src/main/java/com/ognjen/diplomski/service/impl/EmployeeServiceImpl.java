@@ -1,5 +1,7 @@
 package com.ognjen.diplomski.service.impl;
 
+import com.ognjen.diplomski.exception.InvalidRequestException;
+
 import com.ognjen.diplomski.dto.*;
 import com.ognjen.diplomski.entity.AppUser;
 import com.ognjen.diplomski.entity.Role;
@@ -122,7 +124,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         validateCreateRequest(request);
         String roleName = normalizeRole(request.role());
         if (!CREATABLE_ROLES.contains(roleName)) {
-            throw new IllegalArgumentException("Only SALES_REP, MANAGER and BOOKKEEPER employees can be created");
+            throw new InvalidRequestException("Only SALES_REP, MANAGER and BOOKKEEPER employees can be created");
         }
 
         String email = normalizeEmail(request.email());
@@ -177,8 +179,8 @@ public class EmployeeServiceImpl implements EmployeeService {
             EmployeeActiveRequest request
     ) {
         requireCeo(principal);
-        if (request == null) {
-            throw new IllegalArgumentException("Request body is required");
+        if (request == null || request.active() == null) {
+            throw new InvalidRequestException("Request body is required");
         }
         AppUser employee = findManagedEmployee(employeeId);
         if (!request.active() && employee.isActive()) {
@@ -213,17 +215,17 @@ public class EmployeeServiceImpl implements EmployeeService {
     private AppUser resolveManager(String roleName, Long managerId) {
         if (SALES_REP.equals(roleName)) {
             if (managerId == null) {
-                throw new IllegalArgumentException("Manager is required for SALES_REP");
+                throw new InvalidRequestException("Manager is required for SALES_REP");
             }
             AppUser manager = appUserRepository.findByIdAndRoleNameIgnoreCase(managerId, MANAGER)
-                    .orElseThrow(() -> new IllegalArgumentException("Selected manager does not exist"));
+                    .orElseThrow(() -> new InvalidRequestException("Selected manager does not exist"));
             if (!manager.isActive()) {
-                throw new IllegalArgumentException("Selected manager must be active");
+                throw new InvalidRequestException("Selected manager must be active");
             }
             return manager;
         }
         if (managerId != null) {
-            throw new IllegalArgumentException("Manager can only be assigned to SALES_REP");
+            throw new InvalidRequestException("Manager can only be assigned to SALES_REP");
         }
         return null;
     }
@@ -253,24 +255,24 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     private static void validateCreateRequest(EmployeeCreateRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Request body is required");
+            throw new InvalidRequestException("Request body is required");
         }
         validateCommon(request.firstName(), request.lastName(), request.email(), request.phone());
         requireLength(request.password(), "Password", 8, Integer.MAX_VALUE);
         if (request.password().getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw new IllegalArgumentException("Password must contain at most 72 UTF-8 bytes");
+            throw new InvalidRequestException("Password must contain at most 72 UTF-8 bytes");
         }
         if (isBlank(request.role())) {
-            throw new IllegalArgumentException("Role is required");
+            throw new InvalidRequestException("Role is required");
         }
     }
 
     private static void validateUpdateRequest(EmployeeUpdateRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Request body is required");
+            throw new InvalidRequestException("Request body is required");
         }
         if (request.role() != null || request.password() != null) {
-            throw new IllegalArgumentException("Employee role and password cannot be changed");
+            throw new InvalidRequestException("Employee role and password cannot be changed");
         }
         validateCommon(request.firstName(), request.lastName(), request.email(), request.phone());
     }
@@ -280,17 +282,17 @@ public class EmployeeServiceImpl implements EmployeeService {
         requireLength(lastName, "Last name", 1, 50);
         if (isBlank(email) || email.trim().length() > 255
                 || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
-            throw new IllegalArgumentException("A valid email is required");
+            throw new InvalidRequestException("A valid email is required");
         }
         if (phone != null && phone.trim().length() > 50) {
-            throw new IllegalArgumentException("Phone must contain at most 50 characters");
+            throw new InvalidRequestException("Phone must contain at most 50 characters");
         }
     }
 
     private static void requireLength(String value, String field, int min, int max) {
         int length = value == null ? 0 : value.trim().length();
         if (length < min || length > max) {
-            throw new IllegalArgumentException(
+            throw new InvalidRequestException(
                     field + " must contain between " + min + " and " + max + " characters");
         }
     }

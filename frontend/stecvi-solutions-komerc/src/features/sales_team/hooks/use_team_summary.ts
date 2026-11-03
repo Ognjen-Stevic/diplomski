@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { salesTeamApi } from "../api/sales_team_api";
 import type { TeamSummaryMember } from "../types/sales_team.types";
@@ -19,9 +20,11 @@ export function useTeamSummary({
     const [members, setMembers] = useState<TeamSummaryMember[]>([]);
     const [loading, setLoading] = useState(enabled);
     const [error, setError] = useState("");
+    const { sessionId } = useAuth();
     const [retryKey, setRetryKey] = useState(0);
     const requestKey = `${enabled}:${mode}:${managerId ?? "self"}:${retryKey}`;
-    const [stateKey, setStateKey] = useState(requestKey);
+    const identity = useMemo(() => ({ requestKey, sessionId }), [requestKey, sessionId]);
+    const [stateKey, setStateKey] = useState(identity);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -29,7 +32,7 @@ export function useTeamSummary({
         void Promise.resolve().then(async () => {
             if (controller.signal.aborted) return;
 
-            setStateKey(requestKey);
+            setStateKey(identity);
             setMembers([]);
             setError("");
             if (!enabled) {
@@ -56,11 +59,11 @@ export function useTeamSummary({
         });
 
         return () => controller.abort();
-    }, [enabled, managerId, mode, requestKey, retryKey]);
+    }, [identity, enabled, managerId, mode, requestKey, retryKey]);
 
     const retry = useCallback(() => setRetryKey((current) => current + 1), []);
 
-    const stateMatchesRequest = stateKey === requestKey;
+    const stateMatchesRequest = stateKey === identity;
 
     return {
         members: stateMatchesRequest ? members : [],

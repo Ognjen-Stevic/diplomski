@@ -14,6 +14,11 @@ const loadGoogleMaps = (apiKey: string) => {
         document.head.appendChild(script);
     });
 
+    window.googleMapsLoader = window.googleMapsLoader.catch(error => {
+        window.googleMapsLoader = undefined;
+        document.querySelector(`script[src="https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}"]`)?.remove();
+        throw error;
+    });
     return window.googleMapsLoader;
 };
 
@@ -54,6 +59,8 @@ export default function GoogleMapPicker({
     onChange: (url: string) => void;
 }) {
     const mapElement = useRef<HTMLDivElement>(null);
+    const alive = useRef(false);
+    useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
     const mapRef = useRef<InstanceType<GoogleMapsApi["Map"]> | null>(null);
     const markerRef = useRef<InstanceType<GoogleMapsApi["Marker"]> | null>(null);
     const mapsRef = useRef<GoogleMapsApi | null>(null);
@@ -63,6 +70,7 @@ export default function GoogleMapPicker({
     const [coordinates, setCoordinates] = useState<Coordinates | null>(
         initialCoordinates,
     );
+    const [retry, setRetry] = useState(0);
     const [error, setError] = useState("");
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
@@ -71,6 +79,7 @@ export default function GoogleMapPicker({
     }, [onChange]);
 
     const selectLocation = useCallback((position: Coordinates) => {
+        if (!alive.current) return;
         markerRef.current?.setPosition(position);
         mapRef.current?.panTo(position);
         setCoordinates(position);
@@ -105,10 +114,10 @@ export default function GoogleMapPicker({
                 mapRef.current = map;
                 markerRef.current = marker;
             })
-            .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Google Maps nije dostupan."));
+            .catch((reason: unknown) => { if (active) setError(reason instanceof Error ? reason.message : "Google Maps nije dostupan."); });
 
         return () => { active = false; };
-    }, [apiKey, selectLocation]);
+    }, [apiKey, selectLocation, retry]);
 
 
     const useCurrentLocation = () => {
@@ -148,7 +157,7 @@ export default function GoogleMapPicker({
                     ? `Izabrano: ${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`
                     : "Kliknite na mapu ili prevucite pin da izaberete lokaciju."}
             </p>
-            {error && <p role="alert" className="text-sm font-semibold text-red-600">{error}</p>}
+            {error && <p role="alert" className="text-sm font-semibold text-red-600">{error}<button type="button" onClick={() => { setError(""); setRetry(value => value + 1); }}>Pokušaj ponovo</button></p>}
         </div>
     );
 }

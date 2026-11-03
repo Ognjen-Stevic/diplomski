@@ -1,30 +1,29 @@
 package com.ognjen.diplomski.contorller;
 
 import com.ognjen.diplomski.dto.GratisYtdReportResponse;
-import com.ognjen.diplomski.dto.MonthlySalesReportResponse;
 import com.ognjen.diplomski.dto.ManagersSalesComparisonResponse;
 import com.ognjen.diplomski.dto.MonthlyGratisReportResponse;
-import com.ognjen.diplomski.dto.SalesRepresentativeOptionResponse;
-import com.ognjen.diplomski.dto.YtdSalesReportResponse;
+import com.ognjen.diplomski.dto.MonthlySalesReportResponse;
 import com.ognjen.diplomski.dto.TeamSalesComparisonResponse;
+import com.ognjen.diplomski.dto.YtdSalesReportResponse;
 import com.ognjen.diplomski.security.AppUserPrincipal;
-import com.ognjen.diplomski.service.SalesReportService;
+import com.ognjen.diplomski.service.ReportSubjectResolver;
 import com.ognjen.diplomski.service.SalesReportExcelService;
+import com.ognjen.diplomski.service.SalesReportService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/sales-reports")
@@ -38,6 +37,7 @@ public class SalesReportController {
 
     private final SalesReportService salesReportService;
     private final SalesReportExcelService salesReportExcelService;
+    private final ReportSubjectResolver reportSubjectResolver;
 
     @GetMapping("/monthly")
     public MonthlySalesReportResponse getMonthlyReport(
@@ -88,7 +88,7 @@ public class SalesReportController {
             @RequestParam(required = false) Long managerId
     ) {
         MonthlySalesReportResponse report = salesReportService.getMonthlyReport(principal, year, month, salesRepId, managerId);
-        String reportOwner = reportOwner(report.salesRep(), principal);
+        String reportOwner = reportSubjectResolver.resolve(principal, salesRepId, managerId);
         byte[] workbook = salesReportExcelService.createMonthlyWorkbook(
                 report,
                 reportOwner,
@@ -110,7 +110,7 @@ public class SalesReportController {
             @RequestParam(required = false) Long managerId
     ) {
         YtdSalesReportResponse report = salesReportService.getYtdReport(principal, year, salesRepId, managerId);
-        String reportOwner = reportOwner(report.salesRep(), principal);
+        String reportOwner = reportSubjectResolver.resolve(principal, salesRepId, managerId);
         byte[] workbook = salesReportExcelService.createYtdWorkbook(
                 report,
                 reportOwner,
@@ -156,15 +156,16 @@ public class SalesReportController {
         MonthlyGratisReportResponse report = salesReportService.getMonthlyGratisReport(
                 principal, year, month, salesRepId, managerId
         );
+        String reportOwner = reportSubjectResolver.resolve(principal, salesRepId, managerId);
         byte[] workbook = salesReportExcelService.createMonthlyGratisWorkbook(
                 report,
-                principal.firstName(),
-                principal.lastName()
+                reportOwner,
+                ""
         );
         return excelResponse(
                 workbook,
                 "%s-monthly-gratis-report-%04d-%02d.xlsx".formatted(
-                        filenameName(principal),
+                        filenameName(reportOwner),
                         year,
                         month
                 )
@@ -181,14 +182,15 @@ public class SalesReportController {
         GratisYtdReportResponse report = salesReportService.getGratisYtdReport(
                 principal, year, salesRepId, managerId
         );
+        String reportOwner = reportSubjectResolver.resolve(principal, salesRepId, managerId);
         byte[] workbook = salesReportExcelService.createGratisYtdWorkbook(
                 report,
-                principal.firstName(),
-                principal.lastName()
+                reportOwner,
+                ""
         );
         return excelResponse(
                 workbook,
-                "%s-gratis-ytd-report-%d.xlsx".formatted(filenameName(principal), year)
+                "%s-gratis-ytd-report-%d.xlsx".formatted(filenameName(reportOwner), year)
         );
     }
 
@@ -207,10 +209,6 @@ public class SalesReportController {
                 .body(workbook);
     }
 
-    private static String filenameName(AppUserPrincipal principal) {
-        return filenameName(principal.firstName() + " " + principal.lastName());
-    }
-
     private static String filenameName(String name) {
         return name
                 .trim()
@@ -218,12 +216,4 @@ public class SalesReportController {
                 .replaceAll("^-|-$", "");
     }
 
-    private static String reportOwner(
-            SalesRepresentativeOptionResponse salesRep,
-            AppUserPrincipal principal
-    ) {
-        return salesRep == null
-                ? "Tim menadžera " + principal.firstName() + " " + principal.lastName()
-                : salesRep.firstName() + " " + salesRep.lastName();
-    }
 }

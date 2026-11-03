@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { PeriodSelector } from "../../../shared/components/period_selector";
+import { useReportData } from "../hooks/use_report_data";
+import { useReportExport } from "../hooks/use_report_export";
 import { reportApi } from "../report_api";
-import type { YtdReportData } from "../types/sales_report.types";
+import type { ReportViewProps } from "../types/sales_report.types";
 import { formatRsd } from "../utils/sales_report.utils";
 import { ReportChart } from "./report_chart";
 import { ReportFeedback } from "./report_feedback";
@@ -10,67 +12,21 @@ import { ReportExportButton } from "./report_export_button";
 import { ReportSummaryCards } from "./report_summary_cards";
 import { ReportTable } from "./report_table";
 
-type YtdReportProps = {
-    salesRepId: number | null;
-    managerId?: number | null;
-};
-
-export function YtdReport({ salesRepId, managerId = null }: YtdReportProps) {
-    const [selectedDate, setSelectedDate] = useState(() => new Date(new Date().getFullYear(), 0, 1));
-    const [data, setData] = useState<YtdReportData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [retryKey, setRetryKey] = useState(0);
-    const [exporting, setExporting] = useState(false);
-    const [exportError, setExportError] = useState("");
-
-    useEffect(() => {
-        const controller = new AbortController();
-        reportApi.getYtdReport(selectedDate.getFullYear(), salesRepId, managerId, controller.signal)
-            .then(setData)
-            .catch((reason: unknown) => {
-                if (!controller.signal.aborted) {
-                    setError(reason instanceof Error ? reason.message : "Izveštaj nije učitan.");
-                }
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setLoading(false);
-            });
-        return () => controller.abort();
-    }, [managerId, selectedDate, retryKey, salesRepId]);
-
-    const changeYear = (value: Date) => {
-        setLoading(true);
-        setError("");
-        setExportError("");
-        setSelectedDate(value);
-    };
-
-    const retry = () => {
-        setLoading(true);
-        setError("");
-        setExportError("");
-        setRetryKey((key) => key + 1);
-    };
-
-    const exportExcel = async () => {
-        if (exporting) return;
-        setExporting(true);
-        setExportError("");
-        try {
-            await reportApi.downloadYtdReport(selectedDate.getFullYear(), salesRepId, managerId);
-        } catch (reason: unknown) {
-            setExportError(reason instanceof Error ? reason.message : "Excel izveštaj nije preuzet.");
-        } finally {
-            setExporting(false);
-        }
-    };
-
-    const selectedYear = selectedDate.getFullYear();
+export function YtdReport({ salesRepId, managerId, selectedDate, onPeriodChange, onLoaded }: ReportViewProps) {
+    const year = selectedDate.getFullYear();
+    const load = useCallback((signal: AbortSignal) =>
+        reportApi.getYtdReport(year, salesRepId, managerId, signal), [year, salesRepId, managerId]);
+    const { data, loading, error, retry, identity } = useReportData(
+        { type: "ytd", year, month: null, salesRepId, managerId }, load, onLoaded,
+    );
+    const download = useCallback((signal: AbortSignal) =>
+        reportApi.downloadYtdReport(year, salesRepId, managerId, signal), [year, salesRepId, managerId]);
+    const { exporting, exportError, exportExcel } = useReportExport(identity, download);
+    const selectedYear = year;
 
     return (
         <div>
-            <PeriodSelector value={selectedDate} onChange={changeYear} mode="year" />
+            <PeriodSelector value={selectedDate} onChange={onPeriodChange} mode="year" />
             <div className="mt-4 flex justify-end">
                 <ReportExportButton exporting={exporting} disabled={loading || Boolean(error)} onClick={exportExcel} />
             </div>

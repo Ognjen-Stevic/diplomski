@@ -60,7 +60,7 @@ public class AdvertisingMaterialController {
     public AdvertisingMaterialManagementResponse setAdvertisingMaterialActive(
             @AuthenticationPrincipal AppUserPrincipal principal,
             @PathVariable Long materialId,
-            @RequestBody AdvertisingMaterialActiveRequest request
+            @Valid @RequestBody AdvertisingMaterialActiveRequest request
     ) {
         return advertisingMaterialService.setAdvertisingMaterialActive(
                 principal, materialId, request

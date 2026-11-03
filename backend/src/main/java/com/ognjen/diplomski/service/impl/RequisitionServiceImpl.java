@@ -167,9 +167,9 @@ public class RequisitionServiceImpl implements RequisitionService {
             Long requisitionId,
             RequisitionRequest request
     ) {
-        Requisition requisition = requisitionRepository.findDetailedById(requisitionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Requisition not found"));
-        if (!canEditRequisition(requisition, principal)) {
+        Requisition requisition = lockForMutation(requisitionId);
+        if (canView(requisition, principal)) requireCurrentRevision(requisition, request.expectedRevision());
+        if (!actionsFor(requisition, principal).canEdit()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Requisition cannot be edited");
         }
         if (!requisition.getCustomer().getId().equals(request.customerId())
@@ -193,13 +193,13 @@ public class RequisitionServiceImpl implements RequisitionService {
             Long requisitionId,
             RequisitionStatusUpdateRequest request
     ) {
-        Requisition requisition = requisitionRepository.findDetailedById(requisitionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Requisition not found"));
+        Requisition requisition = lockForMutation(requisitionId);
         RequisitionActionsResponse actions = actionsFor(requisition, principal);
         if (!actions.allowedStatusTransitions().contains(request.status())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Status transition is not allowed");
         }
 
+        requireCurrentRevision(requisition, request.expectedRevision());
         String statusNote = normalizeOptional(request.note());
         if (isRejection(request.status()) && statusNote == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rejection note is required");
@@ -421,19 +421,23 @@ public class RequisitionServiceImpl implements RequisitionService {
         return new RequisitionActionsResponse(false, List.of());
     }
 
-    private static boolean canEditRequisition(
-            Requisition requisition,
-            AppUserPrincipal principal
-    ) {
-        RequisitionStatus status = requisition.getStatus();
-        boolean salesRepCanEdit = principal.hasRole("SALES_REP")
-                && requisition.getSalesRep().getId().equals(principal.id())
-                && (status == RequisitionStatus.DRAFT || status == RequisitionStatus.REJECTED);
-        boolean managerCanEdit = principal.hasRole("MANAGER")
-                && (status == RequisitionStatus.SUBMITTED
-                    || status == RequisitionStatus.REJECTED_BY_BOOKKEEPER)
-                && isManagerTeamRequisition(requisition, principal.id());
-        return salesRepCanEdit || managerCanEdit;
+    private Requisition lockForMutation(Long id) {
+        try {
+            return requisitionRepository.findForUpdate(id)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Requisition not found"));
+        } catch (org.springframework.dao.PessimisticLockingFailureException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Requisition is being changed. Reload and try again.", exception);
+        }
+    }
+
+    private static void requireCurrentRevision(Requisition requisition, String expectedRevision) {
+        // Optional for existing API clients; the frontend always sends the revision it loaded.
+        if (expectedRevision != null && !expectedRevision.equals(
+                com.ognjen.diplomski.service.RequisitionRevision.of(requisition))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Requisition has changed. Reload it before saving.");
+        }
     }
 
     private static boolean isManagerTeamRequisition(Requisition requisition, Long managerId) {

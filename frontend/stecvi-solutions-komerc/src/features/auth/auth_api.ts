@@ -87,6 +87,7 @@ async function authenticate(payload: LoginRequest) {
     });
     const auth = await parseResponse<AuthResponse>(response);
     localStorage.setItem(TOKEN_KEY, auth.accessToken);
+    window.dispatchEvent(new Event("auth:changed"));
     return toAuthUser(auth.user);
 }
 
@@ -94,6 +95,7 @@ function invalidateSession(token: string): boolean {
     if (localStorage.getItem(TOKEN_KEY) !== token) return false;
 
     localStorage.removeItem(TOKEN_KEY);
+    window.dispatchEvent(new Event("auth:changed"));
     sessionInvalidationListeners.forEach((listener) => listener());
     return true;
 }
@@ -112,13 +114,20 @@ function onSessionInvalidated(listener: SessionInvalidationListener): () => void
 
 export const authApi = {
     getToken: () => localStorage.getItem(TOKEN_KEY),
+    subscribe(listener: () => void) {
+        const storage = (event: StorageEvent) => { if (event.key === TOKEN_KEY || event.key === null) listener(); };
+        window.addEventListener("storage", storage);
+        window.addEventListener("auth:changed", listener);
+        return () => { window.removeEventListener("storage", storage); window.removeEventListener("auth:changed", listener); };
+    },
     login: (payload: LoginRequest) => authenticate(payload),
     invalidateSession,
     logout,
     onSessionInvalidated,
-    async me(token: string) {
+    async me(token: string, signal?: AbortSignal) {
         const response = await fetch(`${API_URL}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` },
+            signal,
         });
         return toAuthUser(await parseResponse<ApiUser>(response));
     },

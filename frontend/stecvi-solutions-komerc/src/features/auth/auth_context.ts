@@ -6,6 +6,9 @@ import type { LoginRequest } from "./types/login_request";
 
 export type AuthContextValue = {
     user: AuthUser | null;
+    sessionId: object;
+    restorationError: string;
+    retrySession: () => void;
     isLoading: boolean;
     isAuthenticated: boolean;
     login: (credentials: LoginRequest) => Promise<void>;

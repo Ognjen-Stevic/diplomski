@@ -1,4 +1,4 @@
-import { authenticatedFetch } from "../../app/api/http_client";
+import { apiRequest } from "../../app/api/http_client";
 import type {
     Customer,
     CustomerPayload,
@@ -39,73 +39,54 @@ export type CustomerPage = {
 
 type ApiCustomerPage = Omit<CustomerPage, "content"> & { content: ApiCustomer[] };
 
+const STATUS_MAP: Record<ApiCustomer["status"], CustomerStatus> = { DRAFT: "draft", APPROVED: "approved", DEACTIVATED: "deactivated", DELETED: "deleted" };
 function toCustomer(customer: ApiCustomer): Customer {
+    if (!Object.hasOwn(STATUS_MAP, customer.status)) throw new Error("Nepoznat status kupca.");
     return {
         ...customer,
         phone: customer.phone ?? "",
         email: customer.email ?? "",
         googleMapsUrl: customer.googleMapsUrl ?? "",
         note: customer.note ?? "",
-        status: customer.status.toLowerCase() as CustomerStatus,
+        status: STATUS_MAP[customer.status],
     };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await authenticatedFetch(path, {
-        ...init,
-        headers: {
-            ...(init?.body ? { "Content-Type": "application/json" } : {}),
-            ...init?.headers,
-        },
-    });
-
-    if (!response.ok) {
-        let message = "Zahtev nije uspeo.";
-        try {
-            const body = await response.json() as { message?: string; detail?: string };
-            message = body.message ?? body.detail ?? message;
-        } catch {
-            // Keep the fallback for non-JSON responses.
-        }
-        throw new Error(message);
-    }
-
-    return response.status === 204 ? undefined as T : response.json() as Promise<T>;
-}
-
 export const customerApi = {
-    async findAll(search = "", page = 0, size = 50): Promise<CustomerPage> {
+    async findAll(search = "", page = 0, size = 50, signal?: AbortSignal, risk?: string): Promise<CustomerPage> {
         const params = new URLSearchParams({ page: String(page), size: String(size) });
         if (search.trim()) params.set("search", search.trim());
-        const result = await request<ApiCustomerPage>(`/api/customers?${params}`);
+        if (risk) params.set("risk", risk);
+        const endpoint = risk ? "/api/ai/customers/catalog" : "/api/customers";
+        const result = await apiRequest<ApiCustomerPage>(`${endpoint}?${params}`, { signal });
         return { ...result, content: result.content.map(toCustomer) };
     },
-    async findById(customerId: number) {
-        return toCustomer(await request<ApiCustomer>(`/api/customers/${customerId}`));
+    async findById(customerId: number, signal?: AbortSignal) {
+        return toCustomer(await apiRequest<ApiCustomer>(`/api/customers/${customerId}`, { signal }));
     },
     async create(payload: CustomerPayload) {
-        return toCustomer(await request<ApiCustomer>("/api/customers", {
+        return toCustomer(await apiRequest<ApiCustomer>("/api/customers", {
             method: "POST",
             body: JSON.stringify(payload),
         }));
     },
     async update(customerId: number, payload: CustomerPayload) {
-        return toCustomer(await request<ApiCustomer>(`/api/customers/${customerId}`, {
+        return toCustomer(await apiRequest<ApiCustomer>(`/api/customers/${customerId}`, {
             method: "PUT",
             body: JSON.stringify(payload),
         }));
     },
     async updateStatus(customerId: number, status: CustomerStatus) {
-        return toCustomer(await request<ApiCustomer>(`/api/customers/${customerId}/status`, {
+        return toCustomer(await apiRequest<ApiCustomer>(`/api/customers/${customerId}/status`, {
             method: "PATCH",
             body: JSON.stringify({ status: status.toUpperCase() }),
         }));
     },
-    findTeamSalesRepresentatives: () => request<SalesRepresentativeSummary[]>(
+    findTeamSalesRepresentatives: () => apiRequest<SalesRepresentativeSummary[]>(
         "/api/customers/team-sales-representatives",
     ),
     async updateSalesRepresentative(customerId: number, salesRepId: number) {
-        return toCustomer(await request<ApiCustomer>(
+        return toCustomer(await apiRequest<ApiCustomer>(
             `/api/customers/${customerId}/sales-representative`,
             {
                 method: "PATCH",

@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMonthlyRequisitions } from "../hooks/use_requisition_data";
+import { useRequisitionNavigation } from "../hooks/use_requisition_navigation";
+import { APP_ROUTES } from "../../../app/routes";
+import { useMemo, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 import AppLayout from "../../../app/layouts/app_layout";
 import { PERMISSIONS } from "../../../roles/permissions";
@@ -9,41 +12,26 @@ import { RequisitionDetailsPanel } from "../components/requisition_details_panel
 import { PeriodSelector } from "../../../shared/components/period_selector";
 import { RequisitionSummaryCards } from "../components/requisition_summary_cards";
 import { RequisitionTable } from "../components/requisition_table";
-import type { RequisitionListItem, RequisitionStatus } from "../types/requisition.types";
+import type { RequisitionStatus } from "../types/requisition.types";
 import { requisitionApi } from "../requisition_api";
 import { REQUISITION_STATUS_LABELS } from "../data/requisition.data";
 
-const isRequisitionStatus = (value: string | null): value is RequisitionStatus =>
-    value !== null && Object.prototype.hasOwnProperty.call(REQUISITION_STATUS_LABELS, value);
-
 export default function RequisitionPage() {
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
     const { user, hasPermission } = useAuth();
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const current = new Date();
-        return new Date(current.getFullYear(), current.getMonth(), 1);
-    });
-    const [selectedRequisition, setSelectedRequisition] = useState<RequisitionListItem | null>(null);
-    const [requisitions, setRequisitions] = useState<RequisitionListItem[]>([]);
-    const [totalCount, setTotalCount] = useState(0);
-    const [gratisCount, setGratisCount] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const navigation = useRequisitionNavigation();
+    const selectedDate = navigation.date;
+    const query = useMonthlyRequisitions(navigation.year, navigation.month);
+    const requisitions = useMemo(() => query.data?.requisitions ?? [], [query.data]);
+    const { loading, error } = query;
+    const [selection, setSelection] = useState<{ id: number; context: object } | null>(null);
+    const selectedRequisition = selection?.context === query.context
+        ? requisitions.find((item) => item.id === selection.id) ?? null : null;
+    const totalCount = query.data?.totalCount ?? 0;
+    const gratisCount = query.data?.gratisCount ?? 0;
     const [customerFilter, setCustomerFilter] = useState("");
-    const [statusFilter, setStatusFilter] = useState<RequisitionStatus | "ALL">(() => {
-        const requestedStatus = searchParams.get("status");
-        return isRequisitionStatus(requestedStatus) ? requestedStatus : "ALL";
-    });
-    const updateStatusFilter = (status: RequisitionStatus | "ALL") => {
-        setStatusFilter(status);
-        setSearchParams((current) => {
-            const next = new URLSearchParams(current);
-            if (status === "ALL") next.delete("status");
-            else next.set("status", status);
-            return next;
-        }, { replace: true });
-    };
+    const statusFilter = navigation.status;
+    const updateStatusFilter = (status: RequisitionStatus | "ALL") => navigation.update(selectedDate, status);
     const selectedPeriod = new Intl.DateTimeFormat("sr-Latn-RS", {
         month: "long",
         year: "numeric",
@@ -68,25 +56,8 @@ export default function RequisitionPage() {
     }, [requisitions, statusFilter]);
     const filtersActive = customerFilter.trim() !== "" || statusFilter !== "ALL";
 
-    useEffect(() => {
-        if (!user) return;
-        let active = true;
-        requisitionApi.getMonthlyRequisition(selectedDate.getFullYear(), selectedDate.getMonth() + 1)
-            .then((result) => {
-                if (!active) return;
-                setRequisitions(result.requisitions);
-                setTotalCount(result.totalCount);
-                setGratisCount(result.gratisCount);
-            })
-            .catch((requestError: unknown) => {
-                if (active) setError(requestError instanceof Error ? requestError.message : "Trebovanja nisu učitana.");
-            })
-            .finally(() => { if (active) setLoading(false); });
-        return () => { active = false; };
-    }, [selectedDate, user]);
-
-    if (!user) return <Navigate to="/login" replace />;
-    if (!hasPermission(PERMISSIONS.REQUISITIONS_READ)) return <Navigate to="/" replace />;
+    if (!user) return <Navigate to={APP_ROUTES.login} replace />;
+    if (!hasPermission(PERMISSIONS.REQUISITIONS_READ)) return <Navigate to={APP_ROUTES.home} replace />;
 
     return (
         <AppLayout>
@@ -98,19 +69,14 @@ export default function RequisitionPage() {
                         <p className="mt-2 text-sm text-graphite/60">Pregled svih kreiranih trebovanja.</p>
                     </div>
                     {hasPermission(PERMISSIONS.REQUISITIONS_CREATE) && (
-                        <button type="button" onClick={() => navigate("/trebovanja/novo")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-yale-blue px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-stormy-teal focus:outline-none focus:ring-2 focus:ring-stormy-teal focus:ring-offset-2">
+                        <button type="button" onClick={() => navigate(APP_ROUTES.newRequisition)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-yale-blue px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-stormy-teal focus:outline-none focus:ring-2 focus:ring-stormy-teal focus:ring-offset-2">
                             <Plus className="h-5 w-5" />
                             Novo trebovanje
                         </button>
                     )}
                 </header>
 
-                <PeriodSelector value={selectedDate} onChange={(date) => {
-                    setLoading(true);
-                    setError("");
-                    setSelectedRequisition(null);
-                    setSelectedDate(date);
-                }} />
+                <PeriodSelector value={selectedDate} onChange={(date) => navigation.update(date, navigation.status)} />
                 {user.role === "BOOKKEEPER" && (
                     <section
                         aria-label="Filteri trebovanja"
@@ -154,27 +120,26 @@ export default function RequisitionPage() {
                         </button>
                     </section>
                 )}
-                {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-red-700">{error}</p>}
-                {loading ? <p className="mt-8 text-center text-graphite/60">Učitavanje trebovanja...</p> : <>
+                {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-red-700">{error}<button type="button" onClick={query.retry} className="ml-3 font-bold underline">Pokušaj ponovo</button></p>}
+                {loading ? <p className="mt-8 text-center text-graphite/60">Učitavanje trebovanja...</p> : error ? null : <>
                     <RequisitionSummaryCards requisitionCount={totalCount} gratisCount={gratisCount} />
                     <RequisitionTable
                         requisitions={filteredRequisitions}
                         period={selectedPeriod}
                         showSalesRep={user.role === "MANAGER" || user.role === "CEO"}
-                        onSelect={setSelectedRequisition}
+                        onSelect={(item) => setSelection({ id: item.id, context: query.context })}
                     />
                 </>}
             </main>
 
             {selectedRequisition && (
-                <RequisitionDetailsPanel
+                <RequisitionDetailsPanel key={`${selectedRequisition.id}:${selectedRequisition.revision}`}
                     requisition={selectedRequisition}
-                    onClose={() => setSelectedRequisition(null)}
-                    onEdit={() => navigate(`/trebovanja/${selectedRequisition.id}/izmena`)}
+                    onClose={() => setSelection(null)}
+                    onEdit={() => navigate(APP_ROUTES.editRequisition(selectedRequisition.id))}
                     onStatusChange={async (status, note) => {
-                        const updated = await requisitionApi.updateStatus(selectedRequisition.id, status, note);
-                        setSelectedRequisition(updated);
-                        setRequisitions((current) => current.map((item) => item.id === updated.id ? updated : item));
+                        await requisitionApi.updateStatus(selectedRequisition.id, status, note, selectedRequisition.revision);
+                        query.retry();
                     }}
                 />
             )}

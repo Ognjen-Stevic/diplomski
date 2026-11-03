@@ -1,3 +1,4 @@
+import { CustomerAiAnalysis } from "../../ai/risk_components";
 import { ClipboardList, FileClock, FilePenLine, MapPin, Package, Phone, X } from "lucide-react";
 import { DetailRow } from "./detail_row";
 import { useEffect } from "react";
@@ -130,7 +131,8 @@ export function CustomerDetailsPanel({
                             Podaci o kupcu
                         </h3>
                         <dl className="mt-3 rounded-2xl border border-dust-grey px-4">
-                            <DetailRow label="Naziv objekta" value={customer.objectName} />
+                            <CustomerAiAnalysis key={customer.id} customerId={customer.id}/>
+                        <DetailRow label="Naziv objekta" value={customer.objectName} />
                             <DetailRow label="Naziv firme" value={customer.companyName} />
                             <DetailRow label="PIB" value={customer.pib} />
                             <DetailRow label="Broj telefona" value={customer.phone} />

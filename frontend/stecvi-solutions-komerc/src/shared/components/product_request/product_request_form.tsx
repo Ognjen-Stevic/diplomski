@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { PackagePlus } from "lucide-react";
 
 import { RequestConfirmationDialog, type ConfirmationContext } from "./request_confirmation_dialog";
@@ -58,6 +58,7 @@ export function ProductRequestForm<T extends RequestCatalogItem>({
     const [note, setNote] = useState(initialNote);
     const [submitted, setSubmitted] = useState(false);
     const [confirmationOpen, setConfirmationOpen] = useState(false);
+    const inFlight = useRef(false);
     const [submitting, setSubmitting] = useState(false);
     const [submissionError, setSubmissionError] = useState("");
 
@@ -107,11 +108,13 @@ export function ProductRequestForm<T extends RequestCatalogItem>({
         const parentFieldsAreValid = validateBeforeConfirmation?.() ?? true;
         if (quantityErrors.some(Boolean) || !hasSelectedProduct || !parentFieldsAreValid) return;
 
+        setSubmissionError("");
         setConfirmationOpen(true);
     };
 
     const handleConfirm = async () => {
-        if (submitting) return;
+        if (inFlight.current) return;
+        inFlight.current = true;
 
         setSubmitting(true);
         setSubmissionError("");
@@ -126,6 +129,7 @@ export function ProductRequestForm<T extends RequestCatalogItem>({
                 error instanceof Error ? error.message : "Zahtev nije sačuvan.",
             );
         } finally {
+            inFlight.current = false;
             setSubmitting(false);
         }
     };

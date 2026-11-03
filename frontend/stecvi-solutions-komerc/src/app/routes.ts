@@ -1,4 +1,8 @@
 export const APP_ROUTES = {
+    ai: "/ai-analitika",
+    editCustomer: (id: number) => `/kupci/${id}/izmena`,
+    editRequisition: (id: number) => `/trebovanja/${id}/izmena`,
+    customerRequisitions: (id: number) => `/trebovanja/kupac/${id}`,
     home: "/",
     login: "/login",
     customers: "/kupci",

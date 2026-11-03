@@ -177,7 +177,7 @@ public class SalesReportExcelServiceImpl implements SalesReportExcelService {
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, GRATIS_PRODUCT_HEADERS.length - 1));
 
         writeTextPair(sheet.createRow(2), "Period", period, styles);
-        writeTextPair(sheet.createRow(3), "Komercijalista", salesRepName, styles);
+        writeTextPair(sheet.createRow(3), "Izveštaj za", salesRepName, styles);
         writeNumericPair(sheet.createRow(5), "Poklonjeno boca", summary.totalBottles(), styles.quantity(), styles);
         writeNumericPair(sheet.createRow(6), "Poklonjeno balona", summary.totalJugs(), styles.quantity(), styles);
         writeNumericPair(sheet.createRow(7), "Poklonjeno litara", summary.totalLiters(), styles.liters(), styles);
@@ -256,14 +256,20 @@ public class SalesReportExcelServiceImpl implements SalesReportExcelService {
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, PRODUCT_HEADERS.length - 1));
 
         writeTextPair(sheet.createRow(2), "Period", period, styles);
-        writeTextPair(sheet.createRow(3), "Komercijalista", salesRepName, styles);
+        writeTextPair(sheet.createRow(3), "Izveštaj za", salesRepName, styles);
         writeNumericPair(sheet.createRow(5), "Ukupno prodato artikala", summary.totalItems(), styles.quantity(), styles);
         writeNumericPair(sheet.createRow(6), "Prodate boce", summary.totalBottles(), styles.quantity(), styles);
         writeNumericPair(sheet.createRow(7), "Prodati baloni", summary.totalJugs(), styles.quantity(), styles);
         writeNumericPair(sheet.createRow(8), "Ukupno prodato litara", summary.totalLiters(), styles.liters(), styles);
         writeNumericPair(sheet.createRow(9), "Ukupna stimulacija", summary.totalIncentive(), styles.money(), styles);
 
-        int headerIndex = 11;
+        boolean companyReport = summary.salesRepIncentive() != null;
+        if (companyReport) {
+            writeNumericPair(sheet.getRow(9), "Ukupna stimulacija kompanije", summary.totalIncentive(), styles.money(), styles);
+            writeNumericPair(sheet.createRow(10), "Stimulacija komercijalista", summary.salesRepIncentive(), styles.money(), styles);
+            writeNumericPair(sheet.createRow(11), "Stimulacija menadžera", summary.managerIncentive(), styles.money(), styles);
+        }
+        int headerIndex = companyReport ? 13 : 11;
         Row header = sheet.createRow(headerIndex);
         for (int column = 0; column < PRODUCT_HEADERS.length; column++) {
             Cell cell = header.createCell(column);

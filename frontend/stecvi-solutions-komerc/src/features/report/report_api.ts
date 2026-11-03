@@ -1,4 +1,4 @@
-import { authenticatedFetch } from "../../app/api/http_client";
+import { apiRequest, authenticatedFetch } from "../../app/api/http_client";
 import type {
     GratisYtdReportData,
     MonthlyGratisReportData,
@@ -14,6 +14,8 @@ type ApiSalesSummary = {
     totalJugs: number;
     totalLiters: number;
     totalIncentive: number;
+    salesRepIncentive?: number | null;
+    managerIncentive?: number | null;
 };
 
 type ApiGratisSummary = {
@@ -45,6 +47,7 @@ type ApiGratisReason = "LISTING" | "CONSUMPTION" | "GIFT" | "OTHER";
 
 type ApiGratisYtdReport = {
     year: number;
+    salesRep?: ReportSalesRepresentative | null;
     summary: ApiGratisSummary;
     products: ApiProductReportRow[];
     reasons: Array<{ reason: ApiGratisReason; totalLiters: number }>;
@@ -61,26 +64,8 @@ const GRATIS_REASON_LABELS: Record<ApiGratisReason, string> = {
     OTHER: "Ostalo",
 };
 
-async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
-    const response = await authenticatedFetch(path, {
-        signal,
-    });
-
-    if (!response.ok) {
-        let message = "Izveštaj nije učitan.";
-        try {
-            const body = await response.json() as { message?: string; detail?: string };
-            message = body.message ?? body.detail ?? message;
-        } catch {
-            // Use the fallback message when the server does not return JSON.
-        }
-        throw new Error(message);
-    }
-    return response.json() as Promise<T>;
-}
-
-async function downloadReport(path: string, fallbackFilename: string): Promise<void> {
-    const response = await authenticatedFetch(path);
+async function downloadReport(path: string, fallbackFilename: string, signal?: AbortSignal): Promise<void> {
+    const response = await authenticatedFetch(path, { signal });
 
     if (!response.ok) {
         let message = "Excel izveštaj nije preuzet.";
@@ -94,14 +79,19 @@ async function downloadReport(path: string, fallbackFilename: string): Promise<v
     }
 
     const filename = getDownloadFilename(response.headers.get("Content-Disposition")) ?? fallbackFilename;
-    const objectUrl = URL.createObjectURL(await response.blob());
+    const blob = await response.blob();
+    signal?.throwIfAborted();
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(objectUrl);
+    try {
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+    } finally {
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    }
 }
 
 function getDownloadFilename(contentDisposition: string | null): string | null {
@@ -168,7 +158,13 @@ function salesSummaries(summary: ApiSalesSummary, period: "monthly" | "ytd"): Re
         },
     ];
 
-    if (period === "monthly") {
+    if (summary.salesRepIncentive != null && summary.managerIncentive != null) {
+        summaries.push(
+            { id: "sales-rep-incentive", label: "Stimulacija komercijalista", value: Number(summary.salesRepIncentive), format: "currency", tone: "amber" },
+            { id: "manager-incentive", label: "Stimulacija menadžera", value: Number(summary.managerIncentive), format: "currency", tone: "amber" },
+            { id: "company-incentive", label: "Ukupna stimulacija kompanije", value: Number(summary.totalIncentive), format: "currency", tone: "amber" },
+        );
+    } else if (period === "monthly") {
         summaries.push({
             id: "incentive",
             label: "Mesečna stimulacija",
@@ -184,6 +180,7 @@ function salesSummaries(summary: ApiSalesSummary, period: "monthly" | "ytd"): Re
 
 function toGratisReport(result: ApiGratisYtdReport): GratisYtdReportData {
     return {
+        salesRep: result.salesRep,
         summary: [
             {
                 id: "bottles",
@@ -226,11 +223,12 @@ export const reportApi = {
         managerId: number | null = null,
         signal?: AbortSignal,
     ): Promise<MonthlyReportData> {
-        const result = await request<ApiMonthlyReport>(
+        const result = await apiRequest<ApiMonthlyReport>(
             `/api/sales-reports/monthly?year=${year}&month=${month}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`,
-            signal,
+            { signal },
         );
         return {
+            metrics: { totalBottles: Number(result.summary.totalBottles), totalJugs: Number(result.summary.totalJugs), totalLiters: Number(result.summary.totalLiters), totalIncentive: Number(result.summary.totalIncentive), salesRepIncentive: result.summary.salesRepIncentive == null ? undefined : Number(result.summary.salesRepIncentive), managerIncentive: result.summary.managerIncentive == null ? undefined : Number(result.summary.managerIncentive) },
             salesRep: result.salesRep,
             summary: salesSummaries(result.summary, "monthly"),
             products: toProducts(result.products),
@@ -243,11 +241,12 @@ export const reportApi = {
         managerId: number | null = null,
         signal?: AbortSignal,
     ): Promise<YtdReportData> {
-        const result = await request<ApiYtdReport>(
+        const result = await apiRequest<ApiYtdReport>(
             `/api/sales-reports/ytd?year=${year}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`,
-            signal,
+            { signal },
         );
         return {
+            metrics: { totalBottles: Number(result.summary.totalBottles), totalJugs: Number(result.summary.totalJugs), totalLiters: Number(result.summary.totalLiters), totalIncentive: Number(result.summary.totalIncentive), salesRepIncentive: result.summary.salesRepIncentive == null ? undefined : Number(result.summary.salesRepIncentive), managerIncentive: result.summary.managerIncentive == null ? undefined : Number(result.summary.managerIncentive) },
             salesRep: result.salesRep,
             summary: salesSummaries(result.summary, "ytd"),
             products: toProducts(result.products),
@@ -259,33 +258,37 @@ export const reportApi = {
         };
     },
 
-    downloadMonthlyReport(year: number, month: number, salesRepId: number | null = null, managerId: number | null = null): Promise<void> {
+    downloadMonthlyReport(year: number, month: number, salesRepId: number | null = null, managerId: number | null = null, signal?: AbortSignal): Promise<void> {
         const filename = `monthly-report-${year}-${String(month).padStart(2, "0")}.xlsx`;
         return downloadReport(
             `/api/sales-reports/monthly/export?year=${year}&month=${month}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`,
             filename,
+            signal,
         );
     },
 
-    downloadYtdReport(year: number, salesRepId: number | null = null, managerId: number | null = null): Promise<void> {
+    downloadYtdReport(year: number, salesRepId: number | null = null, managerId: number | null = null, signal?: AbortSignal): Promise<void> {
         return downloadReport(
             `/api/sales-reports/ytd/export?year=${year}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`,
             `ytd-report-${year}.xlsx`,
+            signal,
         );
     },
 
-    downloadGratisYtdReport(year: number, salesRepId: number | null = null, managerId: number | null = null): Promise<void> {
+    downloadGratisYtdReport(year: number, salesRepId: number | null = null, managerId: number | null = null, signal?: AbortSignal): Promise<void> {
         return downloadReport(
             `/api/sales-reports/gratis-ytd/export?year=${year}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`,
             `gratis-ytd-report-${year}.xlsx`,
+            signal,
         );
     },
 
-    downloadMonthlyGratisReport(year: number, month: number, salesRepId: number | null = null, managerId: number | null = null): Promise<void> {
+    downloadMonthlyGratisReport(year: number, month: number, salesRepId: number | null = null, managerId: number | null = null, signal?: AbortSignal): Promise<void> {
         const paddedMonth = String(month).padStart(2, "0");
         return downloadReport(
             `/api/sales-reports/gratis-monthly/export?year=${year}&month=${month}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`,
             `monthly-gratis-report-${year}-${paddedMonth}.xlsx`,
+            signal,
         );
     },
 
@@ -296,15 +299,15 @@ export const reportApi = {
         managerId: number | null = null,
         signal?: AbortSignal,
     ): Promise<MonthlyGratisReportData> {
-        const result = await request<ApiMonthlyGratisReport>(
+        const result = await apiRequest<ApiMonthlyGratisReport>(
             `/api/sales-reports/gratis-monthly?year=${year}&month=${month}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`,
-            signal,
+            { signal },
         );
         return toGratisReport(result);
     },
 
     async getGratisYtdReport(year: number, salesRepId: number | null = null, managerId: number | null = null, signal?: AbortSignal): Promise<GratisYtdReportData> {
-        const result = await request<ApiGratisYtdReport>(`/api/sales-reports/gratis-ytd?year=${year}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`, signal);
+        const result = await apiRequest<ApiGratisYtdReport>(`/api/sales-reports/gratis-ytd?year=${year}${salesRepQuery(salesRepId)}${managerQuery(managerId)}`, { signal });
         return toGratisReport(result);
     },
 };

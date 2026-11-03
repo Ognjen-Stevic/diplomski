@@ -1,6 +1,6 @@
 import { Package, Power } from "lucide-react";
 import type { ManagedProduct } from "../types/product_management.types";
-import { resolveProductPictureUrl } from "../product_api";
+import { resolveProductPictureUrl } from "../../../shared/utils/asset_url";
 
 const money = (value: number) => value.toLocaleString("sr-Latn-RS", {
     minimumFractionDigits: 2,

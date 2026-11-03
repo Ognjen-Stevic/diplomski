@@ -1,4 +1,4 @@
-import { GRATIS_REASONS } from "../data/requisition.data";
+import { GRATIS_REASONS, GRATIS_REASON_LABELS } from "../data/requisition.data";
 import type { GratisReason, RequisitionType } from "../types/requisition.types";
 
 type RequisitionTypeSectionProps = {
@@ -25,7 +25,7 @@ export function RequisitionTypeSection({
     const showReasonError = submitted && requisitionType === "gratis" && !gratisReason;
     const showCustomReasonError = submitted
         && requisitionType === "gratis"
-        && gratisReason === "Drugo"
+        && gratisReason === "OTHER"
         && !customReason.trim();
 
     return (
@@ -86,7 +86,7 @@ export function RequisitionTypeSection({
                                     onChange={() => onReasonChange(reason)}
                                     className="sr-only"
                                 />
-                                {reason}
+                                {GRATIS_REASON_LABELS[reason]}
                             </label>
                         ))}
                     </div>
@@ -96,7 +96,7 @@ export function RequisitionTypeSection({
                         </p>
                     )}
 
-                    {gratisReason === "Drugo" && (
+                    {gratisReason === "OTHER" && (
                         <label className="mt-4 block max-w-xl text-sm font-semibold text-graphite">
                             Drugi razlog <span className="text-red-600">*</span>
                             <input

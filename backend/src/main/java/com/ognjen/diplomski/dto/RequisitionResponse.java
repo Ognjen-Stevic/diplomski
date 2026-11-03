@@ -20,7 +20,8 @@ public record RequisitionResponse(
         OffsetDateTime createdAt,
         RequisitionStatus status,
         String statusNote,
-        RequisitionActionsResponse actions
+        RequisitionActionsResponse actions,
+        String revision
 ) {
     public static RequisitionResponse from(
             Requisition requisition,
@@ -43,7 +44,8 @@ public record RequisitionResponse(
                 requisition.getCreatedAt(),
                 requisition.getStatus(),
                 requisition.getStatusNote(),
-                actions
+                actions,
+                com.ognjen.diplomski.service.RequisitionRevision.of(requisition)
         );
     }
 

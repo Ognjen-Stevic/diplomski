@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { REQUISITION_STATUS_LABELS } from "../data/requisition.data";
 import type { RequisitionStatus } from "../types/requisition.types";
@@ -14,6 +14,7 @@ export function RequisitionStatusControl({
     const [status, setStatus] = useState<RequisitionStatus>(allowedTransitions[0]);
     const [note, setNote] = useState("");
     const [confirming, setConfirming] = useState(false);
+    const inFlight = useRef(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const requiresNote = status === "rejected" || status === "rejected_by_bookkeeper";
@@ -30,6 +31,8 @@ export function RequisitionStatusControl({
     };
 
     const confirm = async () => {
+        if (inFlight.current) return;
+        inFlight.current = true;
         setSaving(true);
         setError("");
         try {
@@ -37,8 +40,8 @@ export function RequisitionStatusControl({
             setConfirming(false);
         } catch (requestError) {
             setError(requestError instanceof Error ? requestError.message : "Status trebovanja nije promenjen.");
-            setConfirming(false);
         } finally {
+            inFlight.current = false;
             setSaving(false);
         }
     };
@@ -59,9 +62,9 @@ export function RequisitionStatusControl({
                         <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} className="mt-2 w-full resize-y rounded-xl border border-dust-grey px-3 py-2.5 font-normal outline-none focus:border-stormy-teal focus:ring-2 focus:ring-stormy-teal/20" />
                     </label>
                 )}
-                {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+                {error && !confirming && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
             </form>
-            {confirming && <RequisitionStatusConfirmation status={status} submitting={saving} onCancel={() => setConfirming(false)} onConfirm={() => void confirm()} />}
+            {confirming && <RequisitionStatusConfirmation status={status} submitting={saving} error={error} onCancel={() => { if (!inFlight.current) setConfirming(false); }} onConfirm={() => void confirm()} />}
         </footer>
     );
 }

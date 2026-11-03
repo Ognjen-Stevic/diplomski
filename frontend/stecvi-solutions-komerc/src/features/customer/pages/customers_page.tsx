@@ -1,9 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { AiRiskFilter } from "../../ai/components/ai_customer_filters";
+import { useRiskBatch } from "../../ai/use_risk_batch";
+import { RiskBadge } from "../../ai/risk_components";
+import { useSessionRequest } from "../../../shared/hooks/use_session_request";
+import { useCallback, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
 import AppLayout from "../../../app/layouts/app_layout";
 import { APP_ROUTES } from "../../../app/routes";
-import { CustomerSearch } from "../../dashboard/components/customer_search";
+import { CustomerSearch } from "../components/customer_search";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { PERMISSIONS } from "../../../roles/permissions";
 import { CustomerCard } from "../components/customer_card";
@@ -19,40 +23,31 @@ export default function CustomersPage() {
     const { user, hasPermission } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const search = searchParams.get("search") ?? "";
+    const risk = searchParams.get("risk") ?? "";
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
-    const [searchInput, setSearchInput] = useState(search);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [totalPages, setTotalPages] = useState(0);
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-
-    useEffect(() => setSearchInput(search), [search]);
-
-    useEffect(() => {
-        if (!user || !hasPermission(PERMISSIONS.CUSTOMERS_READ)) return;
-        let active = true;
-        setLoading(true);
-        setError("");
-        customerApi.findAll(search, page - 1, 50)
-            .then((result) => {
-                if (!active) return;
-                setCustomers(result.content);
-                setTotalPages(result.totalPages);
-            })
-            .catch((requestError: unknown) => {
-                if (active) setError(requestError instanceof Error ? requestError.message : "Kupci nisu učitani.");
-            })
-            .finally(() => { if (active) setLoading(false); });
-        return () => { active = false; };
-    }, [hasPermission, page, search, user]);
+    const [draftSearch, setDraftSearch] = useState({ search, value: search });
+    const searchInput = draftSearch.search === search ? draftSearch.value : search;
+    const setSearchInput = (value: string) => setDraftSearch({ search, value });
+    const load = useCallback((signal: AbortSignal) => customerApi.findAll(search, page - 1, 50, signal, risk || undefined), [search, page, risk]);
+    const query = useSessionRequest(`customers:${page}:${search}:${risk}`, load, hasPermission(PERMISSIONS.CUSTOMERS_READ));
+    const linkedId = Number(searchParams.get("customerId"));
+    const loadLinked = useCallback((signal: AbortSignal) => customerApi.findById(linkedId, signal), [linkedId]);
+    const linked = useSessionRequest(`customer-link:${linkedId}`, loadLinked, Number.isInteger(linkedId) && linkedId > 0 && hasPermission(PERMISSIONS.CUSTOMERS_READ));
+    const customers = query.data?.content ?? [];
+    const risks = useRiskBatch(customers.map(customer => customer.id));
+    const totalPages = query.data?.totalPages ?? 0;
+    const { loading, error } = query;
+    const [selection, setSelection] = useState<{ context: object; customer: Customer } | null>(null);
+    const selectedCustomer = selection?.context === query.context ? customers.find(customer => customer.id === selection.customer.id) ?? null : customers.find(customer => customer.id === linkedId) ?? linked.data ?? null;
+    const setSelectedCustomer = (customer: Customer | null) => { setSelection(customer ? { context: query.context, customer } : null); if(!customer && searchParams.has("customerId")){const next=new URLSearchParams(searchParams);next.delete("customerId");setSearchParams(next);}};
 
     if (!user) return <Navigate to="/login" replace />;
     if (!hasPermission(PERMISSIONS.CUSTOMERS_READ)) return <Navigate to="/" replace />;
 
     const submitSearch = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const next = new URLSearchParams();
+        const next = new URLSearchParams(searchParams);
+        next.delete("page"); next.delete("search");
         if (searchInput.trim()) next.set("search", searchInput.trim());
         setSearchParams(next);
     };
@@ -62,6 +57,13 @@ export default function CustomersPage() {
             <main className="w-full min-w-0 px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:px-10 lg:pb-12 xl:px-12">
                 <div className="w-full">
                     <Header />
+                    {user.role !== "BOOKKEEPER" && <div className="mt-5 max-w-sm"><AiRiskFilter label="AI rizik" value={risk} onChange={(value) => {
+                        const next = new URLSearchParams(searchParams);
+                        next.delete("page");
+                        if (value) next.set("risk", value); else next.delete("risk");
+                        setSearchParams(next);
+                    }} /></div>}
+
                     <div className="mt-7"><CustomerSearch value={searchInput} onChange={setSearchInput} onSubmit={submitSearch} /></div>
                     {error && <p role="alert" className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-red-700">{error}</p>}
                     {loading ? (
@@ -71,14 +73,13 @@ export default function CustomersPage() {
                     ) : (
                         <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                             {customers.map((customer) => (
-                                <CustomerCard
-                                    key={customer.id}
+                                <div key={customer.id}><RiskBadge level={risks.data?.find(a=>a.customerId===customer.id)?.level ?? "INSUFFICIENT_DATA"}/><CustomerCard
                                     customer={customer}
                                     onOpen={() => setSelectedCustomer(customer)}
                                     onOrder={() => navigate(`${APP_ROUTES.newRequisition}?customerId=${customer.id}`)}
-                                    onRequisitionHistory={() => navigate(`${APP_ROUTES.requisitions}/kupac/${customer.id}`)}
+                                    onRequisitionHistory={() => navigate(APP_ROUTES.customerRequisitions(customer.id))}
                                     onChangeSalesRep={() => setSelectedCustomer(customer)}
-                                />
+                                /></div>
                             ))}
                         </div>
                     )}
@@ -92,16 +93,15 @@ export default function CustomersPage() {
             {selectedCustomer && <CustomerDetailsPanel
                 customer={selectedCustomer}
                 onClose={() => setSelectedCustomer(null)}
-                onEdit={() => navigate(`/kupci/${selectedCustomer.id}/izmena`, { state: { customer: selectedCustomer } })}
+                onEdit={() => navigate(APP_ROUTES.editCustomer(selectedCustomer.id), { state: { customer: selectedCustomer } })}
                 onStatusChange={async (status: CustomerStatus) => {
                     const updatedCustomer = await customerApi.updateStatus(selectedCustomer.id, status);
                     if (updatedCustomer.status === "deleted") {
-                        setCustomers((current) => current.filter((customer) => customer.id !== updatedCustomer.id));
+                        query.reload(); linked.reload();
                         setSelectedCustomer(null);
                         return;
                     }
-                    setCustomers((current) => current.map((customer) =>
-                        customer.id === updatedCustomer.id ? updatedCustomer : customer));
+                    query.reload(); linked.reload();
                     setSelectedCustomer(updatedCustomer);
                 }}
                 onSalesRepChange={async (salesRepId: number) => {
@@ -109,12 +109,11 @@ export default function CustomersPage() {
                         selectedCustomer.id,
                         salesRepId,
                     );
-                    setCustomers((current) => current.map((customer) =>
-                        customer.id === updatedCustomer.id ? updatedCustomer : customer));
+                    query.reload(); linked.reload();
                     setSelectedCustomer(updatedCustomer);
                 }}
                 onOrder={() => navigate(`${APP_ROUTES.newRequisition}?customerId=${selectedCustomer.id}`)}
-                onRequisitionHistory={() => navigate(`${APP_ROUTES.requisitions}/kupac/${selectedCustomer.id}`)}
+                onRequisitionHistory={() => navigate(APP_ROUTES.customerRequisitions(selectedCustomer.id))}
                 onPromotionalMaterial={() => navigate(
                     `${APP_ROUTES.newAdvertisingMaterialDistribution}?customerId=${selectedCustomer.id}`,
                 )}

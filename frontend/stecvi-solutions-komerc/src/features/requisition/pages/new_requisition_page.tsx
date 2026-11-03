@@ -1,3 +1,7 @@
+import { useRequisitionMutationScope } from "../hooks/use_requisition_data";
+import { requisitionPayload } from "../utils/requisition_payload";
+import { authApi } from "../../auth/auth_api";
+import { APP_ROUTES } from "../../../app/routes";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
@@ -10,16 +14,17 @@ import { RequisitionTypeSection } from "../components/requisition_type_section";
 import type { GratisReason, RequisitionType } from "../types/requisition.types";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { PERMISSIONS } from "../../../roles/permissions";
-import { requisitionApi, type CreateRequisitionRequest } from "../requisition_api";
-import { useProducts } from "../../../shared/hooks/use_products";
+import { requisitionApi } from "../requisition_api";
+import { useProducts } from "../../product/hooks/use_products";
 
 export default function NewRequisitionPage() {
     const navigate = useNavigate();
+    const isCurrent = useRequisitionMutationScope();
     const { user, hasPermission } = useAuth();
     const [searchParams] = useSearchParams();
     const customerIdValue = Number(searchParams.get("customerId"));
     const customerId = Number.isInteger(customerIdValue) && customerIdValue > 0 ? customerIdValue : null;
-    const { selectedCustomer, setSelectedCustomer, customerSearch, setCustomerSearch, matchingCustomers, isPreselected } = useCustomerSelector(customerId);
+    const { selectedCustomer, setSelectedCustomer, customerSearch, setCustomerSearch, matchingCustomers, isPreselected, loading: customerLoading, error: customerError } = useCustomerSelector(customerId);
     const [requisitionType, setRequisitionType] = useState<RequisitionType>("classic");
     const [gratisReason, setGratisReason] = useState<GratisReason>("");
     const [customReason, setCustomReason] = useState("");
@@ -27,8 +32,6 @@ export default function NewRequisitionPage() {
     const { products, loading: productsLoading, error: productsError } = useProducts(
         Boolean(user && hasPermission(PERMISSIONS.REQUISITIONS_CREATE)),
     );
-    const [submitError, setSubmitError] = useState("");
-    const [submitting, setSubmitting] = useState(false);
 
     const resetFeedback = () => setSubmitted(false);
 
@@ -37,14 +40,14 @@ export default function NewRequisitionPage() {
 
         const hasInvalidReason = requisitionType === "gratis" && !gratisReason;
         const hasInvalidCustomReason = requisitionType === "gratis"
-            && gratisReason === "Drugo"
+            && gratisReason === "OTHER"
             && !customReason.trim();
 
         return Boolean(selectedCustomer) && !hasInvalidReason && !hasInvalidCustomReason;
     };
 
-    if (!user) return <Navigate to="/login" replace />;
-    if (!hasPermission(PERMISSIONS.REQUISITIONS_CREATE)) return <Navigate to="/trebovanja" replace />;
+    if (!user) return <Navigate to={APP_ROUTES.login} replace />;
+    if (!hasPermission(PERMISSIONS.REQUISITIONS_CREATE)) return <Navigate to={APP_ROUTES.requisitions} replace />;
 
     return (
         <AppLayout>
@@ -73,7 +76,7 @@ export default function NewRequisitionPage() {
 
                     {productsLoading && <p className="mt-6 text-center text-graphite/60">Učitavanje proizvoda...</p>}
                     {productsError && <p role="alert" className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-red-700">{productsError}</p>}
-                    {!productsLoading && !productsError && <ProductRequestForm
+                    {!productsLoading && !productsError && <ProductRequestForm key={authApi.getToken()}
                         products={products}
                         submitLabel="Kreiraj trebovanje"
                         confirmationTitle="Potvrda trebovanja"
@@ -88,41 +91,15 @@ export default function NewRequisitionPage() {
                         onConfirm={async ({ products, note }) => {
                             if (!selectedCustomer) return;
 
-                            const reasonMap = {
-                                "Za ulistavanje": "LISTING",
-                                "Za potrošnju": "CONSUMPTION",
-                                Poklon: "GIFT",
-                                Drugo: "OTHER",
-                            } as const;
-                            const payload: CreateRequisitionRequest = {
-                                customerId: selectedCustomer.id,
-                                type: requisitionType === "gratis" ? "GRATIS" : "NORMAL",
-                                gratisReason: requisitionType === "gratis"
-                                    ? reasonMap[gratisReason as Exclude<GratisReason, "">]
-                                    : null,
-                                customReason: requisitionType === "gratis" && gratisReason === "Drugo"
-                                    ? customReason.trim()
-                                    : null,
-                                items: products.map(({ product, quantity }) => ({
-                                    productCode: product.code,
-                                    quantity,
-                                })),
-                                note,
-                            };
-
-                            setSubmitting(true);
-                            setSubmitError("");
-                            try {
-                                await requisitionApi.create(payload);
-                                navigate("/trebovanja", { replace: true });
-                            } catch (requestError) {
-                                setSubmitError(requestError instanceof Error ? requestError.message : "Trebovanje nije kreirano.");
-                                throw requestError;
-                            } finally {
-                                setSubmitting(false);
-                            }
+                            await requisitionApi.create(requisitionPayload({
+                                customerId: selectedCustomer.id, type: requisitionType, reason: gratisReason,
+                                customReason, note, items: products.map(({ product, quantity }) => ({ productCode: product.code, quantity })),
+                            }));
+                            if (isCurrent()) navigate(APP_ROUTES.requisitions, { replace: true });
                         }}
                     >
+                        {customerLoading && <p role="status">Učitavanje kupca...</p>}
+                        {customerError && <p role="alert" className="text-red-700">{customerError}</p>}
                         <CustomerSelector
                             selectedCustomer={selectedCustomer}
                             matchingCustomers={matchingCustomers}
@@ -164,8 +141,6 @@ export default function NewRequisitionPage() {
                             }}
                         />
                     </ProductRequestForm>}
-                    {submitting && <p role="status" className="mt-4 text-center text-sm font-semibold text-stormy-teal">Čuvanje trebovanja...</p>}
-                    {submitError && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-red-700">{submitError}</p>}
                 </div>
             </main>
         </AppLayout>

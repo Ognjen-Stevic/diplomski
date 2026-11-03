@@ -1,5 +1,7 @@
 package com.ognjen.diplomski.service.impl;
 
+import com.ognjen.diplomski.exception.InvalidRequestException;
+
 import com.ognjen.diplomski.exception.EmailAlreadyExistsException;
 import com.ognjen.diplomski.dto.AuthResponse;
 import com.ognjen.diplomski.dto.LoginRequest;
@@ -87,33 +89,33 @@ public class AuthServiceImpl implements AuthService {
 
     private static void requireLoginRequest(LoginRequest request) {
         if (request == null || isBlank(request.email()) || isBlank(request.password())) {
-            throw new IllegalArgumentException("Email and password are required");
+            throw new InvalidRequestException("Email and password are required");
         }
     }
 
     private static void validateRegistration(RegisterRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Request body is required");
+            throw new InvalidRequestException("Request body is required");
         }
         requireLength(request.firstName(), "First name", 1, 50);
         requireLength(request.lastName(), "Last name", 1, 50);
         if (isBlank(request.email()) || request.email().length() > 255
                 || !EMAIL_PATTERN.matcher(request.email().trim()).matches()) {
-            throw new IllegalArgumentException("A valid email is required");
+            throw new InvalidRequestException("A valid email is required");
         }
         requireLength(request.password(), "Password", 8, Integer.MAX_VALUE);
         if (request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
-            throw new IllegalArgumentException("Password must contain at most 72 UTF-8 bytes");
+            throw new InvalidRequestException("Password must contain at most 72 UTF-8 bytes");
         }
         if (request.phone() != null && request.phone().trim().length() > 50) {
-            throw new IllegalArgumentException("Phone must contain at most 50 characters");
+            throw new InvalidRequestException("Phone must contain at most 50 characters");
         }
     }
 
     private static void requireLength(String value, String field, int min, int max) {
         int length = value == null ? 0 : value.trim().length();
         if (length < min || length > max) {
-            throw new IllegalArgumentException(
+            throw new InvalidRequestException(
                     field + " must contain between " + min + " and " + max + " characters");
         }
     }

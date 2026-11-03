@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { salesTeamApi } from "../api/sales_team_api";
 import type {
@@ -26,9 +27,11 @@ export function useTeamComparison({
     const [comparison, setComparison] = useState<TeamComparison | ManagersComparison | null>(null);
     const [loading, setLoading] = useState(enabled);
     const [error, setError] = useState("");
+    const { sessionId } = useAuth();
     const [retryKey, setRetryKey] = useState(0);
     const requestKey = `${enabled}:${mode}:${year}:${month}:${managerId ?? "self"}:${retryKey}`;
-    const [stateKey, setStateKey] = useState(requestKey);
+    const identity = useMemo(() => ({ requestKey, sessionId }), [requestKey, sessionId]);
+    const [stateKey, setStateKey] = useState(identity);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -36,7 +39,7 @@ export function useTeamComparison({
         void Promise.resolve().then(async () => {
             if (controller.signal.aborted) return;
 
-            setStateKey(requestKey);
+            setStateKey(identity);
             setComparison(null);
             setError("");
             if (!enabled) {
@@ -68,11 +71,11 @@ export function useTeamComparison({
         });
 
         return () => controller.abort();
-    }, [enabled, managerId, mode, month, requestKey, retryKey, year]);
+    }, [identity, enabled, managerId, mode, month, requestKey, retryKey, year]);
 
     const retry = useCallback(() => setRetryKey((current) => current + 1), []);
 
-    const stateMatchesRequest = stateKey === requestKey;
+    const stateMatchesRequest = stateKey === identity;
 
     return {
         comparison: stateMatchesRequest ? comparison : null,

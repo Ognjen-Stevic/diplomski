@@ -1,11 +1,12 @@
 import type { RequisitionStatus } from "../types/requisition.types";
 
-export const GRATIS_REASONS = [
-    "Za ulistavanje",
-    "Za potrošnju",
-    "Poklon",
-    "Drugo",
-] as const;
+export const GRATIS_REASONS = ["LISTING", "CONSUMPTION", "GIFT", "OTHER"] as const;
+export const GRATIS_REASON_LABELS = {
+    LISTING: "Za ulistavanje",
+    CONSUMPTION: "Za potro\u0161nju",
+    GIFT: "Poklon",
+    OTHER: "Drugo",
+} as const;
 
 export const REQUISITION_STATUS_LABELS: Record<RequisitionStatus, string> = {
     draft: "Nacrt",

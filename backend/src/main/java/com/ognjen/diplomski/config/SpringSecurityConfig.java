@@ -1,12 +1,13 @@
 package com.ognjen.diplomski.config;
 
+import com.ognjen.diplomski.auth.ApiErrorWriter;
 import com.ognjen.diplomski.repository.AppUserRepository;
 import com.ognjen.diplomski.security.AppUserPrincipal;
 import com.ognjen.diplomski.security.JwtAuthenticationFilter;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -19,8 +20,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import java.io.IOException;
 
 import static com.ognjen.diplomski.security.Permissions.*;
 
@@ -53,7 +52,8 @@ public class SpringSecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            ApiErrorWriter errorWriter
     ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
@@ -64,6 +64,10 @@ public class SpringSecurityConfig {
                         .requestMatchers("/api/auth/register").denyAll()
                         .requestMatchers("/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/alerts").authenticated()
+                        .requestMatchers("/api/ai/admin/**").hasRole("CEO")
+                        .requestMatchers("/api/ai/**").access(org.springframework.security.authorization.AuthorizationManagers.allOf(
+                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAnyRole("SALES_REP", "MANAGER", "CEO"),
+                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAuthority(CUSTOMERS_READ)))
                         .requestMatchers(HttpMethod.GET, "/api/customers/**").hasAuthority(CUSTOMERS_READ)
                         .requestMatchers(HttpMethod.POST, "/api/customers/**").hasRole("SALES_REP")
                         .requestMatchers(HttpMethod.PUT, "/api/customers/**").hasRole("SALES_REP")
@@ -95,19 +99,13 @@ public class SpringSecurityConfig {
                         .anyRequest().denyAll())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) ->
-                                writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
+                                errorWriter.write(request, response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED",
                                         "Authentication is required"))
                         .accessDeniedHandler((request, response, exception) ->
-                                writeError(response, HttpServletResponse.SC_FORBIDDEN,
+                                errorWriter.write(request, response, HttpStatus.FORBIDDEN, "FORBIDDEN",
                                         "Access is denied")))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
-    private static void writeError(HttpServletResponse response, int status, String message)
-            throws IOException {
-        response.setStatus(status);
-        response.setContentType("application/json");
-        response.getWriter().write("{\"status\":" + status + ",\"message\":\"" + message + "\"}");
-    }
 }

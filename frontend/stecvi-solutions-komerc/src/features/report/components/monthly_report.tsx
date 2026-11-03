@@ -1,87 +1,31 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { PeriodSelector } from "../../../shared/components/period_selector";
+import { useReportData } from "../hooks/use_report_data";
+import { useReportExport } from "../hooks/use_report_export";
 import { reportApi } from "../report_api";
-import type { MonthlyReportData } from "../types/sales_report.types";
+import type { ReportViewProps } from "../types/sales_report.types";
 import { ReportFeedback } from "./report_feedback";
 import { ReportExportButton } from "./report_export_button";
 import { ReportSummaryCards } from "./report_summary_cards";
 import { ReportTable } from "./report_table";
 
-type MonthlyReportProps = {
-    salesRepId: number | null;
-    managerId?: number | null;
-};
-
-export function MonthlyReport({ salesRepId, managerId = null }: MonthlyReportProps) {
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const current = new Date();
-        return new Date(current.getFullYear(), current.getMonth(), 1);
-    });
-    const [data, setData] = useState<MonthlyReportData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [retryKey, setRetryKey] = useState(0);
-    const [exporting, setExporting] = useState(false);
-    const [exportError, setExportError] = useState("");
+export function MonthlyReport({ salesRepId, managerId, selectedDate, onPeriodChange, onLoaded }: ReportViewProps) {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth() + 1;
+    const load = useCallback((signal: AbortSignal) =>
+        reportApi.getMonthlyReport(year, month, salesRepId, managerId, signal), [year, month, salesRepId, managerId]);
+    const { data, loading, error, retry, identity } = useReportData(
+        { type: "monthly", year, month, salesRepId, managerId }, load, onLoaded,
+    );
+    const download = useCallback((signal: AbortSignal) =>
+        reportApi.downloadMonthlyReport(year, month, salesRepId, managerId, signal), [year, month, salesRepId, managerId]);
+    const { exporting, exportError, exportExcel } = useReportExport(identity, download);
     const period = new Intl.DateTimeFormat("sr-Latn-RS", { month: "long", year: "numeric" }).format(selectedDate);
-
-    useEffect(() => {
-        const controller = new AbortController();
-        reportApi.getMonthlyReport(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth() + 1,
-            salesRepId,
-            managerId,
-            controller.signal,
-        )
-            .then(setData)
-            .catch((reason: unknown) => {
-                if (!controller.signal.aborted) {
-                    setError(reason instanceof Error ? reason.message : "Izveštaj nije učitan.");
-                }
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setLoading(false);
-            });
-        return () => controller.abort();
-    }, [managerId, selectedDate, retryKey, salesRepId]);
-
-    const changePeriod = (value: Date) => {
-        setLoading(true);
-        setError("");
-        setExportError("");
-        setSelectedDate(value);
-    };
-
-    const retry = () => {
-        setLoading(true);
-        setError("");
-        setExportError("");
-        setRetryKey((key) => key + 1);
-    };
-
-    const exportExcel = async () => {
-        if (exporting) return;
-        setExporting(true);
-        setExportError("");
-        try {
-            await reportApi.downloadMonthlyReport(
-                selectedDate.getFullYear(),
-                selectedDate.getMonth() + 1,
-                salesRepId,
-                managerId,
-            );
-        } catch (reason: unknown) {
-            setExportError(reason instanceof Error ? reason.message : "Excel izveštaj nije preuzet.");
-        } finally {
-            setExporting(false);
-        }
-    };
 
     return (
         <div>
-            <PeriodSelector value={selectedDate} onChange={changePeriod} />
+            <PeriodSelector value={selectedDate} onChange={onPeriodChange} />
             <div className="mt-4 flex justify-end">
                 <ReportExportButton exporting={exporting} disabled={loading || Boolean(error)} onClick={exportExcel} />
             </div>

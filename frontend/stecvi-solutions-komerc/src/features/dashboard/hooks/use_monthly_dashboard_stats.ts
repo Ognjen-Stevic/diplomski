@@ -5,7 +5,6 @@ import type { AuthUser } from "../../auth/types/auth_user";
 import { reportApi } from "../../report/report_api";
 import { formatInteger, formatLiters, formatRsd } from "../../report/utils/sales_report.utils";
 import { requisitionApi, type MonthlyRequisition } from "../../requisition/requisition_api";
-import { salesTeamApi } from "../../sales_team/api/sales_team_api";
 
 export type MonthlyDashboardStatsMode = "sales" | "bookkeeper" | "ceo";
 
@@ -36,11 +35,6 @@ const INITIAL_STATE: StatsState = {
 const completedRequisitions = (monthly: MonthlyRequisition) =>
     monthly.requisitions.filter((requisition) => requisition.status === "completed");
 
-const summaryValue = (
-    summary: Awaited<ReturnType<typeof reportApi.getMonthlyReport>>["summary"],
-    id: string,
-) => summary.find((item) => item.id === id)?.value ?? 0;
-
 async function loadStats(
     mode: MonthlyDashboardStatsMode,
     year: number,
@@ -70,17 +64,11 @@ async function loadStats(
     }
 
     if (mode === "ceo") {
-        const [requisitions, report, managers] = await Promise.all([
+        const [requisitions, report] = await Promise.all([
             requisitionApi.getMonthlyRequisition(year, month, signal),
             reportApi.getMonthlyReport(year, month, null, null, signal),
-            salesTeamApi.getManagersComparison(year, month, signal),
         ]);
         const completed = completedRequisitions(requisitions);
-        const managerIncentive = managers.managers.reduce(
-            (total, manager) => total + manager.stimulation,
-            0,
-        );
-
         return [
             {
                 id: "completed-requisitions",
@@ -89,17 +77,17 @@ async function loadStats(
             },
             {
                 id: "liters",
-                value: formatLiters(summaryValue(report.summary, "liters")),
+                value: formatLiters(report.metrics.totalLiters),
                 label: "Ukupno prodato litara ovog meseca",
             },
             {
                 id: "packages",
-                value: `${formatInteger(summaryValue(report.summary, "bottles"))} / ${formatInteger(summaryValue(report.summary, "jugs"))}`,
+                value: `${formatInteger(report.metrics.totalBottles)} / ${formatInteger(report.metrics.totalJugs)}`,
                 label: "Prodato flaša / balona",
             },
             {
                 id: "incentive",
-                value: formatRsd(summaryValue(report.summary, "incentive") + managerIncentive),
+                value: formatRsd(report.metrics.totalIncentive),
                 label: "Ukupna stimulacija ovog meseca",
             },
         ];
@@ -127,12 +115,12 @@ async function loadStats(
         },
         {
             id: "incentive",
-            value: formatRsd(summaryValue(report.summary, "incentive")),
+            value: formatRsd(report.metrics.totalIncentive),
             label: "Trenutna stimulacija",
         },
         {
             id: "packages",
-            value: `${formatInteger(summaryValue(report.summary, "bottles"))} / ${formatInteger(summaryValue(report.summary, "jugs"))}`,
+            value: `${formatInteger(report.metrics.totalBottles)} / ${formatInteger(report.metrics.totalJugs)}`,
             label: "Prodato boca / balona",
         },
     ];

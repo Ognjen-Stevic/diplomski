@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import static com.ognjen.diplomski.service.CustomerAccessPolicy.*;
 import java.util.Locale;
 import java.util.List;
 import java.util.Set;
@@ -167,40 +168,6 @@ public class CustomerServiceImpl implements CustomerService {
         return customer;
     }
 
-    private static Set<CustomerStatus> visibleStatuses(AppUserPrincipal principal) {
-        if (principal.hasRole("CEO") || principal.hasRole("MANAGER")) {
-            return Set.of(
-                    CustomerStatus.DRAFT,
-                    CustomerStatus.APPROVED,
-                    CustomerStatus.DEACTIVATED
-            );
-        }
-        if (principal.hasRole("SALES_REP")) {
-            return Set.of(CustomerStatus.DRAFT, CustomerStatus.APPROVED);
-        }
-        return Set.of();
-    }
-
-    private static CustomerAccessScope customerAccessScope(AppUserPrincipal principal) {
-        return new CustomerAccessScope(
-                principal.hasRole("CEO"),
-                principal.hasRole("MANAGER"),
-                principal.hasRole("SALES_REP")
-        );
-    }
-
-    private static boolean canAccessCustomer(AppUserPrincipal principal, Customer customer) {
-        if (principal.hasRole("CEO")) return true;
-
-        if (principal.hasRole("MANAGER")) {
-            return customer.getSalesRep().getManager() != null
-                    && customer.getSalesRep().getManager().getId().equals(principal.id());
-        }
-
-        return principal.hasRole("SALES_REP")
-                && customer.getSalesRep().getId().equals(principal.id());
-    }
-
     private static void requireSalesRep(AppUserPrincipal principal, String action) {
         if (!principal.hasRole("SALES_REP")) {
             throw new ResponseStatusException(
@@ -240,9 +207,4 @@ public class CustomerServiceImpl implements CustomerService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private record CustomerAccessScope(
-            boolean allCustomers,
-            boolean managedSalesReps,
-            boolean ownCustomers
-    ) {}
 }
