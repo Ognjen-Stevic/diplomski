@@ -7,7 +7,7 @@ import com.ognjen.diplomski.dto.MonthlySalesReportResponse;
 import com.ognjen.diplomski.dto.TeamSalesComparisonResponse;
 import com.ognjen.diplomski.dto.YtdSalesReportResponse;
 import com.ognjen.diplomski.security.AppUserPrincipal;
-import com.ognjen.diplomski.service.ReportSubjectResolver;
+import com.ognjen.diplomski.domain.report.ReportSubjectResolver;
 import com.ognjen.diplomski.service.SalesReportExcelService;
 import com.ognjen.diplomski.service.SalesReportService;
 import jakarta.validation.constraints.Max;

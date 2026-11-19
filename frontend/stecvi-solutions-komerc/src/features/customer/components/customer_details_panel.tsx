@@ -1,4 +1,4 @@
-import { CustomerAiAnalysis } from "../../ai/risk_components";
+import { CustomerAiAnalysis } from "../../../shared/components/ai/customer_ai_analysis";
 import { ClipboardList, FileClock, FilePenLine, MapPin, Package, Phone, X } from "lucide-react";
 import { DetailRow } from "./detail_row";
 import { useEffect } from "react";
@@ -105,7 +105,9 @@ export function CustomerDetailsPanel({
                                 <MapPin className="h-4 w-4" />
                                 Otvori mapu
                             </a>}
-                            {customer.actions.canCreateRequisition && (
+                            {user?.role !== "CEO"
+                                && customer.actions.canCreateRequisition
+                                && hasPermission(PERMISSIONS.REQUISITIONS_CREATE) && (
                             <button
                                 type="button"
                                 onClick={onOrder}

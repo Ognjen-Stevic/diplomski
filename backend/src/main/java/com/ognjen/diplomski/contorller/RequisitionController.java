@@ -1,11 +1,14 @@
 package com.ognjen.diplomski.contorller;
 
-import com.ognjen.diplomski.dto.MonthlyRequisitionResponse;
+import com.ognjen.diplomski.dto.DashboardMonthlyStatisticsResponse;
 import com.ognjen.diplomski.dto.RequisitionEmailRequest;
+import com.ognjen.diplomski.dto.RequisitionPageResponse;
+import com.ognjen.diplomski.dto.RequisitionSummaryPageResponse;
 import com.ognjen.diplomski.dto.RequisitionRequest;
 import com.ognjen.diplomski.dto.RequisitionResponse;
 import com.ognjen.diplomski.dto.RequisitionStatusUpdateRequest;
 import com.ognjen.diplomski.security.AppUserPrincipal;
+import com.ognjen.diplomski.entity.enums.RequisitionStatus;
 import com.ognjen.diplomski.service.RequisitionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -104,22 +107,37 @@ public class RequisitionController {
         return requisitionService.updateStatus(principal, requisitionId, request);
     }
 
-    @GetMapping
-    public MonthlyRequisitionResponse getMonthlyRequisition(
+    @GetMapping("/dashboard-statistics")
+    public DashboardMonthlyStatisticsResponse getDashboardMonthlyStatistics(
             @AuthenticationPrincipal AppUserPrincipal principal,
             @RequestParam @Min(2000) @Max(2100) int year,
             @RequestParam @Min(1) @Max(12) int month
     ) {
-        return requisitionService.getMonthlyRequisition(principal, year, month);
+        return requisitionService.getDashboardMonthlyStatistics(principal, year, month);
     }
 
-    @GetMapping("/customer/{customerId}")
-    public MonthlyRequisitionResponse getMonthlyCustomerRequisitions(
+    @GetMapping("/page")
+    public RequisitionPageResponse getMonthlyRequisitionPage(
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            @RequestParam @Min(2000) @Max(2100) int year,
+            @RequestParam @Min(1) @Max(12) int month,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) RequisitionStatus status
+    ) {
+        return requisitionService.getMonthlyRequisitionPage(
+                principal, year, month, page, search, status);
+    }
+
+    @GetMapping("/customer/{customerId}/page")
+    public RequisitionSummaryPageResponse getMonthlyCustomerRequisitionPage(
             @AuthenticationPrincipal AppUserPrincipal principal,
             @PathVariable Long customerId,
             @RequestParam @Min(2000) @Max(2100) int year,
-            @RequestParam @Min(1) @Max(12) int month
+            @RequestParam @Min(1) @Max(12) int month,
+            @RequestParam(defaultValue = "0") @Min(0) int page
     ) {
-        return requisitionService.getMonthlyCustomerRequisitions(principal, customerId, year, month);
+        return requisitionService.getMonthlyCustomerRequisitionPage(
+                principal, customerId, year, month, page);
     }
 }

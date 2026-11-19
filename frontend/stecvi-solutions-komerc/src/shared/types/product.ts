@@ -5,4 +5,5 @@ export type Product = RequestCatalogItem & {
     code: string;
     price: number;
     pictureUrl: string;
+    packageType: "BOTTLE" | "JUG";
 };

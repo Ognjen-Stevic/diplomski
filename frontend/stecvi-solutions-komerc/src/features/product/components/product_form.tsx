@@ -52,8 +52,8 @@ export function ProductForm({
                     <Field label="Šifra *" value={code} onChange={setCode} maxLength={100} />
                     <NumberField label="Cena (RSD) *" value={price} onChange={setPrice} min="0.01" step="0.01" />
                     <NumberField label="Zapremina pakovanja (l) *" value={volumeLiters} onChange={setVolumeLiters} min="0.001" step="0.001" />
-                    <NumberField label="Stimulacija SALES_REP po komadu (RSD) *" value={salesRepStimulation} onChange={setSalesRepStimulation} min="0" step="0.01" />
-                    <NumberField label="Stimulacija MANAGER po komadu (RSD) *" value={managerStimulation} onChange={setManagerStimulation} min="0" step="0.01" />
+                    <NumberField label="Stimulacija Komercijaliste po komadu (RSD) *" value={salesRepStimulation} onChange={setSalesRepStimulation} min="0" step="0.01" />
+                    <NumberField label="Stimulacija Menadžera po komadu (RSD) *" value={managerStimulation} onChange={setManagerStimulation} min="0" step="0.01" />
                     <label className="font-semibold text-graphite sm:col-span-2">Slika artikla
                         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImage(event.target.files?.[0] ?? null)} className={`${inputClass} file:mr-4 file:rounded-lg file:border-0 file:bg-yale-blue/10 file:px-3 file:py-2 file:font-bold file:text-yale-blue`} />
                         <span className="mt-2 block text-xs font-normal text-graphite/55">JPEG, PNG ili WebP, najviše 5 MB. Ako slika nije izabrana, koristi se podrazumevana slika.</span>

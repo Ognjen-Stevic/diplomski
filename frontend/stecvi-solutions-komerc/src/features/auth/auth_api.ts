@@ -1,9 +1,9 @@
+import { fetchFromApi, HttpError, readApiError } from "../../app/api/http_transport";
 import { PERMISSIONS, type Permission } from "../../roles/permissions";
 import type { Role } from "../../roles/role.types";
 import type { AuthUser } from "./types/auth_user";
 import type { LoginRequest } from "./types/login_request";
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 const TOKEN_KEY = "stecvi_access_token";
 
 type SessionInvalidationListener = () => void;
@@ -26,9 +26,9 @@ type AuthResponse = {
     user: ApiUser;
 };
 
-export class AuthApiError extends Error {
-    constructor(message: string, public readonly status: number) {
-        super(message);
+export class AuthApiError extends HttpError {
+    constructor(message: string, status: number) {
+        super(message, status);
         this.name = "AuthApiError";
     }
 }
@@ -69,18 +69,12 @@ function toAuthUser(user: ApiUser): AuthUser {
 async function parseResponse<T>(response: Response): Promise<T> {
     if (response.ok) return response.json() as Promise<T>;
 
-    let message = "Došlo je do greške. Pokušajte ponovo.";
-    try {
-        const body = await response.json() as { message?: string };
-        if (body.message) message = body.message;
-    } catch {
-        // The fallback message is used for non-JSON error responses.
-    }
-    throw new AuthApiError(message, response.status);
+    const error = await readApiError(response, "Došlo je do greške. Pokušajte ponovo.");
+    throw new AuthApiError(error.message, error.status);
 }
 
 async function authenticate(payload: LoginRequest) {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetchFromApi("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -115,17 +109,22 @@ function onSessionInvalidated(listener: SessionInvalidationListener): () => void
 export const authApi = {
     getToken: () => localStorage.getItem(TOKEN_KEY),
     subscribe(listener: () => void) {
-        const storage = (event: StorageEvent) => { if (event.key === TOKEN_KEY || event.key === null) listener(); };
+        const storage = (event: StorageEvent) => {
+            if (event.key === TOKEN_KEY || event.key === null) listener();
+        };
         window.addEventListener("storage", storage);
         window.addEventListener("auth:changed", listener);
-        return () => { window.removeEventListener("storage", storage); window.removeEventListener("auth:changed", listener); };
+        return () => {
+            window.removeEventListener("storage", storage);
+            window.removeEventListener("auth:changed", listener);
+        };
     },
     login: (payload: LoginRequest) => authenticate(payload),
     invalidateSession,
     logout,
     onSessionInvalidated,
     async me(token: string, signal?: AbortSignal) {
-        const response = await fetch(`${API_URL}/api/auth/me`, {
+        const response = await fetchFromApi("/api/auth/me", {
             headers: { Authorization: `Bearer ${token}` },
             signal,
         });

@@ -14,6 +14,8 @@ import com.ognjen.diplomski.repository.SalesReportRepository;
 import com.ognjen.diplomski.repository.AppUserRepository;
 import com.ognjen.diplomski.security.AppUserPrincipal;
 import com.ognjen.diplomski.service.impl.SalesReportServiceImpl;
+import com.ognjen.diplomski.domain.report.SalesAggregationCalculator;
+import com.ognjen.diplomski.domain.report.GratisAggregationCalculator;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -34,12 +37,49 @@ import static org.mockito.Mockito.when;
 class SalesReportServiceImplTests {
 
     @Test
+    void optimizedSalesRowsMatchReferenceEntityCalculation() {
+        Product product = product(10L, "P-1", "Proizvod", "products/p-1.webp", "0.750");
+        product.setStimulationPerUnit(new BigDecimal("8.00"));
+        product.setManagerStimulationPerUnit(new BigDecimal("3.00"));
+        List<Requisition> requisitions = List.of(
+                requisition(product, "2.00", "10.00"),
+                requisition(product, "3.00", "12.00")
+        );
+        var calculator = new SalesAggregationCalculator();
+
+        var reference = calculator.aggregate(requisitions, false, true);
+        var optimized = calculator.aggregateProductRows(
+                List.of(productRow(product, "5.00", "40.00", "15.00")),
+                false,
+                true
+        );
+
+        assertEquals(reference, optimized);
+    }
+
+    @Test
+    void optimizedGratisRowsMatchReferenceEntityCalculation() {
+        Product product = product(10L, "P-1", "Proizvod", "products/p-1.webp", "0.750");
+        Requisition first = requisition(product, "2.00", "0.00");
+        first.setType(RequisitionType.GRATIS);
+        first.setGratisReason(GratisReason.GIFT);
+        Requisition second = requisition(product, "3.00", "0.00");
+        second.setType(RequisitionType.GRATIS);
+        second.setGratisReason(GratisReason.GIFT);
+        var calculator = new GratisAggregationCalculator();
+
+        var reference = calculator.aggregate(List.of(first, second));
+        var optimized = calculator.aggregateRows(
+                List.of(gratisProductRow(product, "5.00")),
+                List.of(gratisReasonRow(GratisReason.GIFT, "3.750"))
+        );
+
+        assertEquals(reference, optimized);
+    }
+
+    @Test
     void ceoCanViewReportsWithoutManagerOrSalesRepresentativeSelection() {
         SalesReportRepository repository = mock(SalesReportRepository.class);
-        when(repository.findAllForReport(eq(RequisitionType.NORMAL), any(), any()))
-                .thenReturn(List.of());
-        when(repository.findAllForReport(eq(RequisitionType.GRATIS), any(), any()))
-                .thenReturn(List.of());
         AppUserRepository users = mock(AppUserRepository.class);
         SalesReportServiceImpl service = new SalesReportServiceImpl(repository, users);
 
@@ -52,9 +92,9 @@ class SalesReportServiceImplTests {
 
         assertEquals(null, response.salesRep());
         verify(repository, org.mockito.Mockito.times(2))
-                .findAllForReport(eq(RequisitionType.NORMAL), any(), any());
+                .findProductAggregates(isNull(), isNull(), eq(RequisitionType.NORMAL), any(), any());
         verify(repository, org.mockito.Mockito.times(2))
-                .findAllForReport(eq(RequisitionType.GRATIS), any(), any());
+                .findGratisProductAggregates(isNull(), isNull(), any(), any());
         verify(users, never()).findByIdAndRoleNameIgnoreCase(any(), any());
     }
 
@@ -142,8 +182,8 @@ class SalesReportServiceImplTests {
         Product product = product(10L, "P-1", "Proizvod", "products/p-1.webp", "0.750");
         product.setStimulationPerUnit(new BigDecimal("8.00"));
         product.setManagerStimulationPerUnit(new BigDecimal("3.00"));
-        when(repository.findForReport(eq(25L), eq(RequisitionType.NORMAL), any(), any()))
-                .thenReturn(List.of(requisition(product, "2.00", "8.00")));
+        when(repository.findProductAggregates(eq(25L), eq(8L), eq(RequisitionType.NORMAL), any(), any()))
+                .thenReturn(List.of(productRow(product, "2.00", "16.00", "6.00")));
         SalesReportServiceImpl service = new SalesReportServiceImpl(repository, appUserRepository);
 
         MonthlySalesReportResponse response = service.getMonthlyReport(managerPrincipal(), 2026, 6, 25L);
@@ -153,7 +193,7 @@ class SalesReportServiceImplTests {
         assertEquals(new BigDecimal("3.00"), response.products().getFirst().incentivePerItem());
         assertEquals(new BigDecimal("6.00"), response.products().getFirst().totalIncentive());
         assertEquals(new BigDecimal("6.00"), response.summary().totalIncentive());
-        verify(repository).findForReport(eq(25L), eq(RequisitionType.NORMAL), any(), any());
+        verify(repository).findProductAggregates(eq(25L), eq(8L), eq(RequisitionType.NORMAL), any(), any());
 
         assertThrows(
                 org.springframework.web.server.ResponseStatusException.class,
@@ -185,7 +225,6 @@ class SalesReportServiceImplTests {
         assertEquals(0, new BigDecimal("10").compareTo(response.summary().totalBottles()));
         assertEquals(new BigDecimal("7.500"), response.summary().totalLiters());
         assertEquals(new BigDecimal("30.00"), response.summary().totalIncentive());
-        verify(repository, never()).findForReport(any(), any(), any(), any());
     }
 
     @Test
@@ -197,11 +236,11 @@ class SalesReportServiceImplTests {
         Product jug = product(11L, "P-2", "Kanister", "products/p-2.webp", "5.000");
         jug.setStimulationPerUnit(new BigDecimal("6.00"));
         jug.setPackageType(PackageType.JUG);
-        Requisition first = requisition(product, "2.00", "10.00");
-        Requisition second = requisition(product, "3.00", "12.00");
-        Requisition third = requisition(jug, "4.00", "5.00");
-        when(repository.findForReport(eq(4L), eq(RequisitionType.NORMAL), any(), any()))
-                .thenReturn(List.of(first, second, third));
+        when(repository.findProductAggregates(eq(4L), isNull(), eq(RequisitionType.NORMAL), any(), any()))
+                .thenReturn(List.of(
+                        productRow(product, "5.00", "40.00", "0.00"),
+                        productRow(jug, "4.00", "24.00", "0.00")
+                ));
 
         MonthlySalesReportResponse response = service.getMonthlyReport(principal(), 2026, 6, null);
 
@@ -214,7 +253,7 @@ class SalesReportServiceImplTests {
         assertEquals(new BigDecimal("8.00"), response.products().getFirst().incentivePerItem());
         assertEquals(new BigDecimal("40.00"), response.products().getFirst().totalIncentive());
         assertEquals(PackageType.BOTTLE, response.products().getFirst().packageType());
-        verify(repository).findForReport(eq(4L), eq(RequisitionType.NORMAL), any(), any());
+        verify(repository).findProductAggregates(eq(4L), isNull(), eq(RequisitionType.NORMAL), any(), any());
     }
 
     @Test
@@ -224,14 +263,10 @@ class SalesReportServiceImplTests {
         Product bottle = product(10L, "P-1", "Boca", "products/p-1.webp", "0.750");
         Product jug = product(11L, "P-2", "Balon", "products/p-2.webp", "5.000");
         jug.setPackageType(PackageType.JUG);
-        Requisition giftedBottles = requisition(bottle, "2.00", "0.00");
-        giftedBottles.setType(RequisitionType.GRATIS);
-        giftedBottles.setGratisReason(GratisReason.GIFT);
-        Requisition giftedJug = requisition(jug, "3.00", "0.00");
-        giftedJug.setType(RequisitionType.GRATIS);
-        giftedJug.setGratisReason(GratisReason.GIFT);
-        when(repository.findForReport(eq(4L), eq(RequisitionType.GRATIS), any(), any()))
-                .thenReturn(List.of(giftedBottles, giftedJug));
+        when(repository.findGratisProductAggregates(eq(4L), isNull(), any(), any()))
+                .thenReturn(List.of(gratisProductRow(bottle, "2.00"), gratisProductRow(jug, "3.00")));
+        when(repository.findGratisReasonAggregates(eq(4L), isNull(), any(), any()))
+                .thenReturn(List.of(gratisReasonRow(GratisReason.GIFT, "16.500")));
 
         GratisYtdReportResponse response = service.getGratisYtdReport(principal(), 2026);
 
@@ -242,7 +277,7 @@ class SalesReportServiceImplTests {
         assertEquals(1, response.reasons().size());
         assertEquals(GratisReason.GIFT, response.reasons().getFirst().reason());
         assertEquals(new BigDecimal("16.500"), response.reasons().getFirst().totalLiters());
-        verify(repository).findForReport(eq(4L), eq(RequisitionType.GRATIS), any(), any());
+        verify(repository).findGratisProductAggregates(eq(4L), isNull(), any(), any());
     }
 
     @Test
@@ -252,14 +287,10 @@ class SalesReportServiceImplTests {
         Product bottle = product(10L, "P-1", "Boca", "products/p-1.webp", "0.750");
         Product jug = product(11L, "P-2", "Balon", "products/p-2.webp", "5.000");
         jug.setPackageType(PackageType.JUG);
-        Requisition giftedBottles = requisition(bottle, "2.00", "0.00");
-        giftedBottles.setType(RequisitionType.GRATIS);
-        giftedBottles.setGratisReason(GratisReason.GIFT);
-        Requisition giftedJug = requisition(jug, "3.00", "0.00");
-        giftedJug.setType(RequisitionType.GRATIS);
-        giftedJug.setGratisReason(GratisReason.GIFT);
-        when(repository.findForReport(eq(4L), eq(RequisitionType.GRATIS), any(), any()))
-                .thenReturn(List.of(giftedBottles, giftedJug));
+        when(repository.findGratisProductAggregates(eq(4L), isNull(), any(), any()))
+                .thenReturn(List.of(gratisProductRow(bottle, "2.00"), gratisProductRow(jug, "3.00")));
+        when(repository.findGratisReasonAggregates(eq(4L), isNull(), any(), any()))
+                .thenReturn(List.of(gratisReasonRow(GratisReason.GIFT, "16.500")));
 
         MonthlyGratisReportResponse response = service.getMonthlyGratisReport(principal(), 2026, 6);
 
@@ -270,7 +301,7 @@ class SalesReportServiceImplTests {
         assertEquals(new BigDecimal("16.500"), response.summary().totalLiters());
         assertEquals(2, response.products().size());
         assertEquals(1, response.reasons().size());
-        verify(repository).findForReport(eq(4L), eq(RequisitionType.GRATIS), any(), any());
+        verify(repository).findGratisProductAggregates(eq(4L), isNull(), any(), any());
     }
 
     @Test
@@ -281,20 +312,16 @@ class SalesReportServiceImplTests {
         manager.setId(8L);
         when(appUserRepository.findByIdAndRoleNameIgnoreCase(8L, "MANAGER"))
                 .thenReturn(Optional.of(manager));
-        when(repository.findTeamForReport(eq(8L), eq(RequisitionType.GRATIS), any(), any()))
-                .thenReturn(List.of());
 
         new SalesReportServiceImpl(repository, appUserRepository)
                 .getMonthlyGratisReport(ceoPrincipal(), 2026, 6, 8L);
 
-        verify(repository).findTeamForReport(eq(8L), eq(RequisitionType.GRATIS), any(), any());
+        verify(repository).findGratisProductAggregates(isNull(), eq(8L), any(), any());
     }
 
     @Test
     void managerGratisMonthlyAndYtdReportsUseTheirWholeTeam() {
         SalesReportRepository repository = mock(SalesReportRepository.class);
-        when(repository.findTeamForReport(eq(8L), eq(RequisitionType.GRATIS), any(), any()))
-                .thenReturn(List.of());
         SalesReportServiceImpl service = new SalesReportServiceImpl(
                 repository, mock(AppUserRepository.class)
         );
@@ -302,10 +329,8 @@ class SalesReportServiceImplTests {
         service.getMonthlyGratisReport(managerPrincipal(), 2026, 6);
         service.getGratisYtdReport(managerPrincipal(), 2026);
 
-        verify(repository, org.mockito.Mockito.times(2)).findTeamForReport(
-                eq(8L), eq(RequisitionType.GRATIS), any(), any()
-        );
-        verify(repository, never()).findForReport(any(), any(), any(), any());
+        verify(repository, org.mockito.Mockito.times(2)).findGratisProductAggregates(
+                isNull(), eq(8L), any(), any());
     }
 
     @Test
@@ -316,12 +341,10 @@ class SalesReportServiceImplTests {
         teamMember.setId(25L); teamMember.setFirstName("Ana"); teamMember.setLastName("Anić");
         when(users.findByIdAndManagerIdAndRoleNameIgnoreCase(25L, 8L, "SALES_REP"))
                 .thenReturn(Optional.of(teamMember));
-        when(repository.findForReport(eq(25L), eq(RequisitionType.GRATIS), any(), any()))
-                .thenReturn(List.of());
         SalesReportServiceImpl service = new SalesReportServiceImpl(repository, users);
 
         service.getMonthlyGratisReport(managerPrincipal(), 2026, 6, 25L, null);
-        verify(repository).findForReport(eq(25L), eq(RequisitionType.GRATIS), any(), any());
+        verify(repository).findGratisProductAggregates(eq(25L), eq(8L), any(), any());
 
         var exception = assertThrows(
                 org.springframework.web.server.ResponseStatusException.class,
@@ -341,12 +364,10 @@ class SalesReportServiceImplTests {
                 .thenReturn(Optional.of(manager));
         when(users.findByIdAndManagerIdAndRoleNameIgnoreCase(25L, 8L, "SALES_REP"))
                 .thenReturn(Optional.of(teamMember));
-        when(repository.findForReport(eq(25L), eq(RequisitionType.GRATIS), any(), any()))
-                .thenReturn(List.of());
         SalesReportServiceImpl service = new SalesReportServiceImpl(repository, users);
 
         service.getGratisYtdReport(ceoPrincipal(), 2026, 25L, 8L);
-        verify(repository).findForReport(eq(25L), eq(RequisitionType.GRATIS), any(), any());
+        verify(repository).findGratisProductAggregates(eq(25L), eq(8L), any(), any());
 
         var exception = assertThrows(
                 org.springframework.web.server.ResponseStatusException.class,
@@ -362,8 +383,10 @@ class SalesReportServiceImplTests {
         Product product = product(1L, "TEST", "Test", "/test.png", "1.5");
         product.setStimulationPerUnit(new BigDecimal("20"));
         product.setManagerStimulationPerUnit(new BigDecimal("5"));
-        when(repository.findAllForReport(eq(RequisitionType.NORMAL), any(), any()))
-                .thenReturn(List.of(requisition(product, "10", "20"), requisition(product, "2", "20")));
+        when(repository.findProductAggregates(isNull(), isNull(), eq(RequisitionType.NORMAL), any(), any()))
+                .thenReturn(List.of(productRow(product, "12", "240", "60")));
+        when(repository.findMonthlyIncentiveAggregates(isNull(), isNull(), eq(RequisitionType.NORMAL), any(), any()))
+                .thenReturn(List.of(monthlyRow(6, "240", "60")));
         SalesReportServiceImpl service = new SalesReportServiceImpl(repository, users);
         var monthly = service.getMonthlyReport(ceoPrincipal(), 2026, 6, null, null);
         var ytd = service.getYtdReport(ceoPrincipal(), 2026, null, null);
@@ -475,5 +498,59 @@ class SalesReportServiceImplTests {
         when(row.getStimulation()).thenReturn(new BigDecimal(stimulation));
         when(row.getManagerStimulation()).thenReturn(new BigDecimal(managerStimulation));
         return row;
+    }
+
+    private static SalesReportRepository.ProductSalesAggregateProjection productRow(
+            Product product,
+            String units,
+            String salesRepIncentive,
+            String managerIncentive
+    ) {
+        return new SalesReportRepository.ProductSalesAggregateProjection() {
+            public String getProductCode() { return product.getCode(); }
+            public String getProductName() { return product.getName(); }
+            public String getPictureUrl() { return product.getPictureUrl(); }
+            public BigDecimal getUnits() { return new BigDecimal(units); }
+            public BigDecimal getVolumeLiters() { return product.getVolumeLiters(); }
+            public PackageType getPackageType() { return product.getPackageType(); }
+            public BigDecimal getSalesRepIncentive() { return new BigDecimal(salesRepIncentive); }
+            public BigDecimal getManagerIncentive() { return new BigDecimal(managerIncentive); }
+        };
+    }
+
+    private static SalesReportRepository.MonthlyIncentiveAggregateProjection monthlyRow(
+            int month,
+            String salesRepIncentive,
+            String managerIncentive
+    ) {
+        return new SalesReportRepository.MonthlyIncentiveAggregateProjection() {
+            public Integer getMonth() { return month; }
+            public BigDecimal getSalesRepIncentive() { return new BigDecimal(salesRepIncentive); }
+            public BigDecimal getManagerIncentive() { return new BigDecimal(managerIncentive); }
+        };
+    }
+
+    private static SalesReportRepository.GratisProductAggregateProjection gratisProductRow(
+            Product product,
+            String units
+    ) {
+        return new SalesReportRepository.GratisProductAggregateProjection() {
+            public String getProductCode() { return product.getCode(); }
+            public String getProductName() { return product.getName(); }
+            public String getPictureUrl() { return product.getPictureUrl(); }
+            public BigDecimal getUnits() { return new BigDecimal(units); }
+            public BigDecimal getVolumeLiters() { return product.getVolumeLiters(); }
+            public PackageType getPackageType() { return product.getPackageType(); }
+        };
+    }
+
+    private static SalesReportRepository.GratisReasonAggregateProjection gratisReasonRow(
+            GratisReason reason,
+            String totalLiters
+    ) {
+        return new SalesReportRepository.GratisReasonAggregateProjection() {
+            public GratisReason getReason() { return reason; }
+            public BigDecimal getTotalLiters() { return new BigDecimal(totalLiters); }
+        };
     }
 }

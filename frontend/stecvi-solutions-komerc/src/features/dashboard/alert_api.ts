@@ -1,15 +1,14 @@
-import { authenticatedFetch } from "../../app/api/http_client";
+import { apiRequest } from "../../app/api/http_client";
 import type { DashboardAlertCounters } from "./types/alert.types";
 
 export const alertApi = {
     async findAll(signal?: AbortSignal): Promise<DashboardAlertCounters> {
-        const response = await authenticatedFetch("/api/alerts", { signal });
-
-        if (!response.ok) {
-            throw new Error("Obaveštenja nisu učitana.");
+        try {
+            return await apiRequest<DashboardAlertCounters>("/api/alerts", { signal });
+        } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") throw error;
+            throw new Error("Obaveštenja nisu učitana.", { cause: error });
         }
-
-        return response.json() as Promise<DashboardAlertCounters>;
     },
 };
 

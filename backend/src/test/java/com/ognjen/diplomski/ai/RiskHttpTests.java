@@ -6,6 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.ognjen.diplomski.auth.*;
+import com.ognjen.diplomski.ai.api.CustomerRiskController;
+import com.ognjen.diplomski.ai.persistence.RiskStore;
+import com.ognjen.diplomski.ai.service.CustomerRiskService;
 import com.ognjen.diplomski.config.SpringSecurityConfig;
 import com.ognjen.diplomski.entity.*;
 import com.ognjen.diplomski.repository.AppUserRepository;
@@ -42,7 +45,6 @@ class RiskHttpTests {
   @MockitoBean AppUserRepository users;
   @MockitoBean com.ognjen.diplomski.repository.CustomerRepository customers;
   @MockitoBean JdbcTemplate db;
-  @MockitoBean RiskJobs jobs;
 
   private String token(String role) {
     AppUser user = new AppUser();
@@ -77,16 +79,30 @@ class RiskHttpTests {
   }
 
   @Test
-  void nonAdminsCannotTrainOrActivate() throws Exception {
-    for (String role : List.of("MANAGER", "SALES_REP")) {
+  void noRoleCanInvokeRemovedLifecycleEndpoints() throws Exception {
+    for (String role : List.of("MANAGER", "SALES_REP", "BOOKKEEPER")) {
       mvc.perform(post("/api/ai/admin/train").header("Authorization", token(role)))
+          .andExpect(status().isForbidden());
+      mvc.perform(post("/api/ai/admin/refresh").header("Authorization", token(role)))
           .andExpect(status().isForbidden());
       mvc.perform(
               post("/api/ai/admin/models/" + UUID.randomUUID() + "/activate")
                   .header("Authorization", token(role)))
           .andExpect(status().isForbidden());
     }
-    verifyNoInteractions(jobs);
+    String ceo = token("CEO");
+    mvc.perform(post("/api/ai/admin/train").header("Authorization", ceo))
+        .andExpect(status().isNotFound());
+    mvc.perform(post("/api/ai/admin/refresh").header("Authorization", ceo))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            post("/api/ai/admin/models/" + UUID.randomUUID() + "/activate")
+                .header("Authorization", ceo))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/api/ai/admin/models").header("Authorization", ceo))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/api/ai/admin/monitoring").header("Authorization", ceo))
+        .andExpect(status().isNotFound());
   }
 
   @Test
@@ -140,7 +156,8 @@ class RiskHttpTests {
         .thenReturn(true);
     mvc.perform(
             get("/api/ai/customers/risks?risk=HIGH&page=1").header("Authorization", token("CEO")))
-        .andExpect(status().isOk());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.size").value(20));
     verify(db)
         .queryForObject(
             contains("coalesce(a.level,'INSUFFICIENT_DATA')=?"),

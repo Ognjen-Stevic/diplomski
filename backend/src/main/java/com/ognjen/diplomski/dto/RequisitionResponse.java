@@ -45,7 +45,7 @@ public record RequisitionResponse(
                 requisition.getStatus(),
                 requisition.getStatusNote(),
                 actions,
-                com.ognjen.diplomski.service.RequisitionRevision.of(requisition)
+                com.ognjen.diplomski.domain.requisition.RequisitionRevision.of(requisition)
         );
     }
 

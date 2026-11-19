@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { PeriodSelector } from "../../../shared/components/period_selector";
-import { ReportChart } from "../../report/components/report_chart";
+import { ReportChart } from "../../../shared/components/report/report_chart";
 import { formatInteger, formatRsd } from "../../report/utils/sales_report.utils";
 import { useTeamComparison } from "../hooks/use_team_comparison";
 import type {

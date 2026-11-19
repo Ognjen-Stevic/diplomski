@@ -20,35 +20,32 @@ const state = vi.hoisted(() => ({
 vi.mock("../features/auth/hooks/useAuth", () => ({
   useAuth: () => state.auth,
 }));
-vi.mock("../features/ai/risk_api", () => ({ riskApi: state }));
-vi.mock("../app/api/http_client", () => ({
-  apiRequest: vi.fn(async () => []),
-}));
+vi.mock("../features/ai/apis/risk_api", () => ({ riskApi: state }));
 vi.mock("../app/layouts/app_layout", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-import {
-  CustomerAiAnalysis,
-  RiskBadge,
-  RiskOverview,
-} from "../features/ai/risk_components";
-import AiPage from "../features/ai/ai_page";
-const assessment = (id: number) => ({
-  customerId: id,
-  customerName: `Customer ${id}`,
+import { CustomerAiAnalysis } from "../shared/components/ai/customer_ai_analysis";
+import { RiskBadge } from "../shared/components/ai/risk_badge";
+import { RiskOverview } from "../shared/components/ai/risk_overview";
+import AiPage from "../features/ai/pages/ai_page";
+const assessment = () => ({
   level: "INSUFFICIENT_DATA",
-  status: "MODEL_UNAVAILABLE",
   at: "2026-10-23T12:00:00Z",
-  modelVersion: null,
+  status: "INSUFFICIENT_DATA" as const,
   features: null,
   factors: [],
   recommendation: "Prikupite istoriju",
   stale: false,
 });
+const listItem = (id: number) => ({
+  customerId: id,
+  customerName: `Customer ${id}`,
+  ...assessment(),
+});
 beforeEach(() => {
   vi.clearAllMocks();
   state.auth = { user: { role: "SALES_REP" }, sessionId: {}, hasPermission:()=>true };
-  state.detail.mockImplementation(async (id: number) => assessment(id));
+  state.detail.mockImplementation(async () => assessment());
   state.activities.mockResolvedValue([]);
 });
 it("badges distinguish missing data from actual high risk", () => {
@@ -61,11 +58,29 @@ it("badges distinguish missing data from actual high risk", () => {
   expect(screen.getByText("Visok rizik")).toBeInTheDocument();
   expect(screen.getByText("Nedovoljno podataka")).toBeInTheDocument();
 });
-it("missing model has an explicit state without a confidence percentage", async () => {
+it("analysis hides internal status and model details", async () => {
   render(<CustomerAiAnalysis customerId={1} />);
-  await screen.findByText("Status: MODEL_UNAVAILABLE");
-  expect(screen.getByText(/Nema aktivnog modela/)).toBeInTheDocument();
+  await screen.findByText(/Procena:/);
+  expect(screen.queryByText(/MODEL_UNAVAILABLE/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Model:/)).not.toBeInTheDocument();
   expect(screen.queryByText(/\d+%/)).not.toBeInTheDocument();
+});
+it("analysis explains model unavailability without exposing an internal status code", async () => {
+  state.detail.mockResolvedValue({ ...assessment(), status: "MODEL_UNAVAILABLE" });
+  render(<CustomerAiAnalysis customerId={1} />);
+  expect(await screen.findByText(/AI model trenutno nije dostupan/)).toBeInTheDocument();
+  expect(screen.queryByText("MODEL_UNAVAILABLE")).not.toBeInTheDocument();
+});
+it("analysis presents model features in a compact table", async () => {
+  state.detail.mockResolvedValue({
+    ...assessment(),
+    features: { recencyDays: 12, orders60: 4 },
+  });
+  render(<CustomerAiAnalysis customerId={1} />);
+  const table = await screen.findByRole("table", { name: "Podaci korišćeni za AI procenu" });
+  expect(table).toHaveTextContent("Dana od poslednje porudžbine");
+  expect(table).toHaveTextContent("12.0");
+  expect(table).toHaveTextContent("Porudžbine — 60 dana");
 });
 it("late customer results cannot replace another customer", async () => {
   let finish!: (value: unknown) => void;
@@ -77,8 +92,8 @@ it("late customer results cannot replace another customer", async () => {
   );
   const view = render(<CustomerAiAnalysis customerId={1} />);
   view.rerender(<CustomerAiAnalysis customerId={2} />);
-  await screen.findByText("Status: MODEL_UNAVAILABLE");
-  await act(async () => finish({ ...assessment(1), status: "OLD_CUSTOMER" }));
+  await screen.findByText(/Procena:/);
+  await act(async () => finish({ ...assessment(), recommendation: "OLD_CUSTOMER" }));
   expect(screen.queryByText(/OLD_CUSTOMER/)).not.toBeInTheDocument();
 });
 it("session changes discard unsaved activities", async () => {
@@ -131,6 +146,22 @@ it("overview shows retryable errors", async () => {
   await screen.findByRole("alert");
   expect(screen.getByText(/Service unavailable/)).toBeInTheDocument();
 });
+it("overview presents a compact risk summary without implementation details", async () => {
+  state.summary.mockResolvedValue({
+    total: 200,
+    distribution: { LOW: 60, MEDIUM: 40, HIGH: 80, INSUFFICIENT_DATA: 20 },
+    increased: 0,
+    highRiskPercentage: 44.4,
+    teams: [],
+  });
+  render(
+    <MemoryRouter>
+      <RiskOverview />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText("Udeo visokog rizika")).toBeInTheDocument();
+  expect(screen.queryByText(/DEMO:/)).not.toBeInTheDocument();
+});
 it("bookkeepers cannot see AI navigation page or request data", () => {
   state.auth = { ...state.auth, user: { role: "BOOKKEEPER" } };
   render(
@@ -140,17 +171,16 @@ it("bookkeepers cannot see AI navigation page or request data", () => {
   );
   expect(state.list).not.toHaveBeenCalled();
 });
-it("risk filters are sent to the server and customer links open existing screens", async () => {
+it("risk filters are sent to the server and customer cards open the analysis panel", async () => {
   state.summary.mockResolvedValue({
     total: 1,
     distribution: {},
     increased: 0,
     highRiskPercentage: null,
-    historicalHighRiskLiters: 0,
     teams: [],
   });
   state.list.mockResolvedValue({
-    content: [assessment(1)],
+    content: [listItem(1)],
     total: 1,
     page: 0,
     size: 25,
@@ -161,10 +191,7 @@ it("risk filters are sent to the server and customer links open existing screens
     </MemoryRouter>,
   );
   await screen.findByText("Customer 1");
-  expect(screen.getByRole("link", { name: "Customer 1" })).toHaveAttribute(
-    "href",
-    "/kupci?search=Customer%201&customerId=1",
-  );
+  expect(screen.getByRole("button", { name: "Otvori AI analizu za Customer 1" })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Rizik"), {
     target: { value: "HIGH" },
   });
@@ -174,6 +201,8 @@ it("risk filters are sent to the server and customer links open existing screens
       expect.any(AbortSignal),
     ),
   );
+  fireEvent.click(screen.getByRole("button", { name: "Otvori AI analizu za Customer 1" }));
+  expect(await screen.findByRole("dialog", { name: "AI analiza kupca" })).toBeInTheDocument();
   const requestsBeforeTyping = state.list.mock.calls.length;
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "  Novi kupac  " } });
   expect(state.list).toHaveBeenCalledTimes(requestsBeforeTyping);

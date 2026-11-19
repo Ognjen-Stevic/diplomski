@@ -1,4 +1,3 @@
-import { RiskOverview } from "../../ai/risk_components";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -42,7 +41,6 @@ export default function TeamPage() {
     return (
         <AppLayout>
             <main className="w-full min-w-0 px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:px-10 lg:pb-12 xl:px-12">
-                <RiskOverview managerId={selectedManagerId}/>
                 {user.role === "CEO" && selectedManagerId !== null && (
                     <button
                         type="button"

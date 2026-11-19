@@ -1,7 +1,8 @@
-import { useMonthlyRequisitions } from "../hooks/use_requisition_data";
+import { useMonthlyCustomerRequisitionPage, useRequisition } from "../hooks/use_requisition_data";
 import { useRequisitionNavigation } from "../hooks/use_requisition_navigation";
+import { useOpenRequisitionEditor } from "../hooks/use_requisition_route";
 import { APP_ROUTES } from "../../../app/routes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -12,25 +13,39 @@ import { useAuth } from "../../auth/hooks/useAuth";
 import { RequisitionDetailsPanel } from "../components/requisition_details_panel";
 import { RequisitionTable } from "../components/requisition_table";
 import { requisitionApi } from "../requisition_api";
+import { Pagination } from "../../../shared/components/pagination";
 
 export default function RequisitionHistoryPage() {
     const navigate = useNavigate();
+    const openEditor = useOpenRequisitionEditor();
     const { customerId: customerIdParam } = useParams();
     const { user, hasPermission } = useAuth();
     const customerId = Number(customerIdParam);
     const validCustomerId = Number.isInteger(customerId) && customerId > 0;
     const navigation = useRequisitionNavigation();
     const selectedDate = navigation.date;
-    const query = useMonthlyRequisitions(navigation.year, navigation.month, customerId);
+    const [page, setPage] = useState(1);
+    const query = useMonthlyCustomerRequisitionPage(
+        customerId, navigation.year, navigation.month, page);
     const requisitions = query.data?.requisitions ?? [];
     const { loading, error } = query;
-    const [selection, setSelection] = useState<{ id: number; context: object } | null>(null);
-    const selectedRequisition = selection?.context === query.context
-        ? requisitions.find((item) => item.id === selection.id) ?? null : null;
+    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const selectedQuery = useRequisition(selectedId ?? 0, selectedId !== null);
+    const selectedRequisition = selectedQuery.data ?? null;
     const selectedPeriod = new Intl.DateTimeFormat("sr-Latn-RS", {
         month: "long",
         year: "numeric",
     }).format(selectedDate);
+
+    useEffect(() => {
+        setPage(1);
+        setSelectedId(null);
+    }, [navigation.year, navigation.month, customerId]);
+
+    useEffect(() => {
+        if (!query.data || query.data.totalPages === 0 || page <= query.data.totalPages) return;
+        setPage(query.data.totalPages);
+    }, [page, query.data]);
 
     if (!user) return <Navigate to={APP_ROUTES.login} replace />;
     if (!hasPermission(PERMISSIONS.REQUISITIONS_READ) || !validCustomerId) {
@@ -66,23 +81,32 @@ export default function RequisitionHistoryPage() {
                 )}
                 {loading ? (
                     <p className="mt-8 text-center text-graphite/60">Učitavanje istorije trebovanja...</p>
-                ) : error ? null : (
+                ) : error ? null : <>
                     <RequisitionTable
                         requisitions={requisitions}
                         period={selectedPeriod}
                         showSalesRep={user.role === "MANAGER" || user.role === "CEO"}
-                        onSelect={(item) => setSelection({ id: item.id, context: query.context })}
+                        onSelect={(item) => setSelectedId(item.id)}
                     />
-                )}
+                    <Pagination
+                        currentPage={query.data?.pageNumber ?? page}
+                        totalPages={query.data?.totalPages ?? 0}
+                        onChange={(nextPage) => {
+                            setSelectedId(null);
+                            setPage(nextPage);
+                        }}
+                    />
+                </>}
             </main>
 
             {selectedRequisition && (
                 <RequisitionDetailsPanel key={`${selectedRequisition.id}:${selectedRequisition.revision}`}
                     requisition={selectedRequisition}
-                    onClose={() => setSelection(null)}
-                    onEdit={() => navigate(APP_ROUTES.editRequisition(selectedRequisition.id))}
+                    onClose={() => setSelectedId(null)}
+                    onEdit={() => openEditor(selectedRequisition.id)}
                     onStatusChange={async (status, note) => {
                         await requisitionApi.updateStatus(selectedRequisition.id, status, note, selectedRequisition.revision);
+                        setSelectedId(null);
                         query.retry();
                     }}
                 />

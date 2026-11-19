@@ -12,7 +12,6 @@ export function useApplicationNavigation() {
         if (!user) {
             return {
                 navigation: [] as NavigationItem[],
-                mobilePrimaryNavigation: [] as NavigationItem[],
             };
         }
 
@@ -22,9 +21,6 @@ export function useApplicationNavigation() {
 
         return {
             navigation,
-            mobilePrimaryNavigation: navigation.filter(
-                (item) => item.mobilePosition !== undefined,
-            ),
         };
     }, [hasPermission, user]);
 }

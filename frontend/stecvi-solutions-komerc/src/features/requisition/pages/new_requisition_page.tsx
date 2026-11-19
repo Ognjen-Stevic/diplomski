@@ -2,7 +2,7 @@ import { useRequisitionMutationScope } from "../hooks/use_requisition_data";
 import { requisitionPayload } from "../utils/requisition_payload";
 import { authApi } from "../../auth/auth_api";
 import { APP_ROUTES } from "../../../app/routes";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -17,6 +17,14 @@ import { PERMISSIONS } from "../../../roles/permissions";
 import { requisitionApi } from "../requisition_api";
 import { useProducts } from "../../product/hooks/use_products";
 
+type ProductCategory = "ALL" | "BOTTLE" | "JUG";
+
+const PRODUCT_CATEGORIES: ReadonlyArray<{ value: ProductCategory; label: string }> = [
+    { value: "ALL", label: "Sve" },
+    { value: "BOTTLE", label: "Flaše" },
+    { value: "JUG", label: "Baloni" },
+];
+
 export default function NewRequisitionPage() {
     const navigate = useNavigate();
     const isCurrent = useRequisitionMutationScope();
@@ -29,9 +37,15 @@ export default function NewRequisitionPage() {
     const [gratisReason, setGratisReason] = useState<GratisReason>("");
     const [customReason, setCustomReason] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [productCategory, setProductCategory] = useState<ProductCategory>("ALL");
     const { products, loading: productsLoading, error: productsError } = useProducts(
         Boolean(user && hasPermission(PERMISSIONS.REQUISITIONS_CREATE)),
     );
+    const visibleProductKeys = useMemo(() => new Set(
+        products
+            .filter((product) => productCategory === "ALL" || product.packageType === productCategory)
+            .map((product) => product.key),
+    ), [productCategory, products]);
 
     const resetFeedback = () => setSubmitted(false);
 
@@ -81,6 +95,8 @@ export default function NewRequisitionPage() {
                         submitLabel="Kreiraj trebovanje"
                         confirmationTitle="Potvrda trebovanja"
                         confirmationDescription="Proverite podatke pre kreiranja trebovanja."
+                        quantitySteppers
+                        visibleProductKeys={visibleProductKeys}
                         confirmationContext={selectedCustomer ? {
                             label: "Kupac",
                             primaryText: selectedCustomer.objectName,
@@ -140,6 +156,29 @@ export default function NewRequisitionPage() {
                                 resetFeedback();
                             }}
                         />
+
+                        <section aria-label="Kategorija proizvoda" className="rounded-2xl border border-dust-grey bg-white p-4 shadow-sm">
+                            <div className="flex flex-wrap gap-2">
+                                {PRODUCT_CATEGORIES.map((category) => {
+                                    const selected = productCategory === category.value;
+                                    return (
+                                        <button
+                                            key={category.value}
+                                            type="button"
+                                            aria-pressed={selected}
+                                            onClick={() => setProductCategory(category.value)}
+                                            className={`rounded-xl px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-stormy-teal/30 ${
+                                                selected
+                                                    ? "bg-yale-blue text-white shadow-sm"
+                                                    : "border border-dust-grey bg-white text-graphite hover:border-stormy-teal hover:text-stormy-teal"
+                                            }`}
+                                        >
+                                            {category.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </section>
                     </ProductRequestForm>}
                 </div>
             </main>

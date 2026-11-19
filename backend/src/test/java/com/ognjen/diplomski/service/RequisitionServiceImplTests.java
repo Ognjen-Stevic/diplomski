@@ -11,6 +11,7 @@ import com.ognjen.diplomski.dto.RequisitionItemRequest;
 import com.ognjen.diplomski.dto.RequisitionEmailRecipient;
 import com.ognjen.diplomski.dto.RequisitionRequest;
 import com.ognjen.diplomski.dto.RequisitionStatusUpdateRequest;
+import com.ognjen.diplomski.dto.DashboardMonthlyStatisticsResponse;
 import com.ognjen.diplomski.repository.AppUserRepository;
 import com.ognjen.diplomski.repository.CustomerRepository;
 import com.ognjen.diplomski.repository.ProductRepository;
@@ -19,14 +20,22 @@ import com.ognjen.diplomski.security.AppUserPrincipal;
 import com.ognjen.diplomski.service.impl.RequisitionServiceImpl;
 import com.ognjen.diplomski.service.RequisitionPdfService;
 import com.ognjen.diplomski.service.RequisitionEmailService;
+import com.ognjen.diplomski.ai.lifecycle.capture.AiCaptureOutbox;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.OffsetDateTime;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -36,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -45,69 +55,107 @@ import static org.mockito.Mockito.when;
 class RequisitionServiceImplTests {
 
     @Test
-    void managerReceivesNonDraftTeamRequisitions() {
+    void dashboardStatisticsUseScopedAggregateWithoutLoadingRequisitions() {
         RequisitionRepository repository = mock(RequisitionRepository.class);
         RequisitionServiceImpl service = service(repository);
-        Requisition submitted = requisition(1L, RequisitionStatus.SUBMITTED);
-        Requisition approved = requisition(2L, RequisitionStatus.APPROVED);
-        when(repository.findMonthlyByManagerTeam(
-                eq(7L), any(OffsetDateTime.class), any(OffsetDateTime.class)
-        )).thenReturn(List.of(submitted, approved));
+        var expected = new DashboardMonthlyStatisticsResponse(12, 3, 2);
+        when(repository.getMonthlyStatisticsForManagerTeam(
+                eq(7L), any(OffsetDateTime.class), any(OffsetDateTime.class)))
+                .thenReturn(expected);
 
-        var response = service.getMonthlyRequisition(
-                principal(7L, "ROLE_MANAGER"),
+        var response = service.getDashboardMonthlyStatistics(
+                principal(7L, "ROLE_MANAGER"), 2026, 9);
+
+        assertSame(expected, response);
+        verify(repository).getMonthlyStatisticsForManagerTeam(
+                eq(7L), any(OffsetDateTime.class), any(OffsetDateTime.class));
+    }
+
+    @Test
+    void monthlyPageUsesLightweightScopedProjectionAndFixedPageSize() {
+        RequisitionRepository repository = mock(RequisitionRepository.class);
+        RequisitionServiceImpl service = service(repository);
+        when(repository.findMonthlyPageBySalesRep(
+                eq(20L), any(), any(), eq(null), eq(null), eq(false), eq(""), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 20), 42));
+        when(repository.countMonthlyBySalesRepAndType(
+                eq(20L), eq(RequisitionType.GRATIS), any(), any())).thenReturn(5L);
+        when(repository.countMonthlyBySalesRepAndType(
+                eq(20L), eq(RequisitionType.NORMAL), any(), any())).thenReturn(37L);
+
+        var response = service.getMonthlyRequisitionPage(
+                principal(20L, "ROLE_SALES_REP"), 2026, 9, 1, null, null);
+
+        assertEquals(42, response.totalCount());
+        assertEquals(42, response.totalElements());
+        assertEquals(1, response.pageNumber());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void monthlyPageDisablesSearchForNullEmptyAndBlankValues(String search) {
+        RequisitionRepository repository = mock(RequisitionRepository.class);
+        RequisitionServiceImpl service = service(repository);
+        when(repository.findMonthlyPageBySalesRep(
+                eq(20L), any(), any(), eq(null), eq(null), eq(false), eq(""), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        service.getMonthlyRequisitionPage(
+                principal(20L, "ROLE_SALES_REP"), 2026, 9, 0, search, null);
+
+        verify(repository).findMonthlyPageBySalesRep(
+                eq(20L), any(), any(), eq(null), eq(null), eq(false), eq(""), any());
+    }
+
+    @Test
+    void monthlyPageNormalizesNonEmptySearchIntoTypedLikePattern() {
+        RequisitionRepository repository = mock(RequisitionRepository.class);
+        RequisitionServiceImpl service = service(repository);
+        when(repository.findMonthlyPageBySalesRep(
+                eq(20L), any(), any(), eq(null), eq(null), eq(true), eq("%acme shop%"), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        service.getMonthlyRequisitionPage(
+                principal(20L, "ROLE_SALES_REP"), 2026, 9, 0, "  AcMe SHOP  ", null);
+
+        verify(repository).findMonthlyPageBySalesRep(
+                eq(20L), any(), any(), eq(null), eq(null), eq(true), eq("%acme shop%"), any());
+    }
+
+    @Test
+    void bookkeeperMonthlyPageIncludesBookkeeperRejectionsInScopeAndFilter() {
+        RequisitionRepository repository = mock(RequisitionRepository.class);
+        RequisitionServiceImpl service = service(repository);
+        Set<RequisitionStatus> visibleStatuses = Set.of(
+                RequisitionStatus.APPROVED,
+                RequisitionStatus.REJECTED_BY_BOOKKEEPER,
+                RequisitionStatus.PROCESSING,
+                RequisitionStatus.COMPLETED,
+                RequisitionStatus.CANCELLED_BY_BOOKKEEPER
+        );
+        when(repository.findMonthlyPageByStatuses(
+                eq(visibleStatuses), any(), any(), eq(null),
+                eq(RequisitionStatus.REJECTED_BY_BOOKKEEPER),
+                eq(false), eq(""), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 20), 41));
+
+        var response = service.getMonthlyRequisitionPage(
+                principal(30L, "ROLE_BOOKKEEPER"),
                 2026,
-                9
+                9,
+                1,
+                null,
+                RequisitionStatus.REJECTED_BY_BOOKKEEPER
         );
 
-        assertEquals(2, response.totalCount());
-        assertEquals(RequisitionStatus.SUBMITTED, response.requisitions().get(0).status());
-        assertEquals(RequisitionStatus.APPROVED, response.requisitions().get(1).status());
-        assertEquals("Sales", response.requisitions().get(0).salesRep().firstName());
-        verify(repository).findMonthlyByManagerTeam(
-                eq(7L), any(OffsetDateTime.class), any(OffsetDateTime.class)
-        );
-    }
-
-    @Test
-    void ceoReceivesAllMonthlyRequisitions() {
-        RequisitionRepository repository = mock(RequisitionRepository.class);
-        RequisitionServiceImpl service = service(repository);
-        when(repository.findAllMonthly(any(OffsetDateTime.class), any(OffsetDateTime.class)))
-                .thenReturn(List.of());
-
-        service.getMonthlyRequisition(principal(1L, "ROLE_CEO"), 2026, 9);
-
-        verify(repository).findAllMonthly(any(OffsetDateTime.class), any(OffsetDateTime.class));
-    }
-
-    @Test
-    void salesRepresentativeReceivesOnlyOwnMonthlyRequisitions() {
-        RequisitionRepository repository = mock(RequisitionRepository.class);
-        RequisitionServiceImpl service = service(repository);
-        when(repository.findMonthlyBySalesRep(
-                eq(20L), any(OffsetDateTime.class), any(OffsetDateTime.class)
-        )).thenReturn(List.of());
-
-        service.getMonthlyRequisition(principal(20L, "ROLE_SALES_REP"), 2026, 9);
-
-        verify(repository).findMonthlyBySalesRep(
-                eq(20L), any(OffsetDateTime.class), any(OffsetDateTime.class)
-        );
-    }
-
-    @Test
-    void unsupportedRoleCannotFetchMonthlyRequisitions() {
-        RequisitionRepository repository = mock(RequisitionRepository.class);
-        RequisitionServiceImpl service = service(repository);
-
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> service.getMonthlyRequisition(principal(30L, "ROLE_USER"), 2026, 9)
-        );
-
-        assertEquals(403, exception.getStatusCode().value());
-        verifyNoInteractions(repository);
+        assertEquals(41, response.totalElements());
+        assertEquals(3, response.totalPages());
+        assertEquals(1, response.pageNumber());
+        verify(repository).findMonthlyPageByStatuses(
+                eq(visibleStatuses), any(), any(), eq(null),
+                eq(RequisitionStatus.REJECTED_BY_BOOKKEEPER),
+                eq(false), eq(""), any());
     }
 
     @Test
@@ -261,24 +309,28 @@ class RequisitionServiceImplTests {
     }
 
     @Test
-    void managerMustProvideNoteWhenRejectingSubmittedRequisition() {
-        RequisitionRepository repository = mock(RequisitionRepository.class);
-        RequisitionServiceImpl service = service(repository);
-        Requisition submitted = managerTeamRequisition(7L, RequisitionStatus.SUBMITTED);
-        when(repository.findDetailedById(1L)).thenReturn(Optional.of(submitted));
-        when(repository.findForUpdate(1L)).thenReturn(Optional.of(submitted));
+    void managerMustProvideNoteWhenRejectingRequisition() {
+        for (RequisitionStatus currentStatus : List.of(
+                RequisitionStatus.SUBMITTED,
+                RequisitionStatus.REJECTED_BY_BOOKKEEPER
+        )) {
+            RequisitionRepository repository = mock(RequisitionRepository.class);
+            RequisitionServiceImpl service = service(repository);
+            Requisition requisition = managerTeamRequisition(7L, currentStatus);
+            when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> service.updateStatus(
-                        principal(7L, "ROLE_MANAGER"),
-                        1L,
-                        new RequisitionStatusUpdateRequest(RequisitionStatus.REJECTED, " ")
-                )
-        );
+            ResponseStatusException exception = assertThrows(
+                    ResponseStatusException.class,
+                    () -> service.updateStatus(
+                            principal(7L, "ROLE_MANAGER"),
+                            1L,
+                            new RequisitionStatusUpdateRequest(RequisitionStatus.REJECTED, " ")
+                    )
+            );
 
-        assertEquals(400, exception.getStatusCode().value());
-        verify(repository, never()).saveAndFlush(any());
+            assertEquals(400, exception.getStatusCode().value());
+            verify(repository, never()).saveAndFlush(any());
+        }
     }
 
     @Test
@@ -394,16 +446,75 @@ class RequisitionServiceImplTests {
         assertEquals("Review documentation", managerResponse.statusNote());
         assertTrue(managerResponse.actions().canEdit());
         assertEquals(
-                List.of(RequisitionStatus.APPROVED, RequisitionStatus.CANCELLED_BY_MANAGER),
+                List.of(
+                        RequisitionStatus.APPROVED,
+                        RequisitionStatus.REJECTED,
+                        RequisitionStatus.CANCELLED_BY_MANAGER
+                ),
                 managerResponse.actions().allowedStatusTransitions()
         );
         verify(repository).saveAndFlush(processing);
     }
 
     @Test
+    void responsibleManagerCanRejectBookkeeperRejectionWithNote() {
+        RequisitionRepository repository = mock(RequisitionRepository.class);
+        RequisitionServiceImpl service = service(repository);
+        Requisition rejected = managerTeamRequisition(
+                7L, RequisitionStatus.REJECTED_BY_BOOKKEEPER);
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(rejected));
+        when(repository.saveAndFlush(rejected)).thenReturn(rejected);
+
+        var response = service.updateStatus(
+                principal(7L, "ROLE_MANAGER"),
+                1L,
+                new RequisitionStatusUpdateRequest(
+                        RequisitionStatus.REJECTED,
+                        "  Manager rejection  "
+                )
+        );
+
+        assertEquals(RequisitionStatus.REJECTED, response.status());
+        assertEquals("Manager rejection", response.statusNote());
+        verify(repository).saveAndFlush(rejected);
+    }
+
+    @Test
+    void unrelatedManagerAndUnauthorizedRoleCannotRejectBookkeeperRejection() {
+        for (AppUserPrincipal principal : List.of(
+                principal(8L, "ROLE_MANAGER"),
+                principal(20L, "ROLE_SALES_REP"),
+                principal(1L, "ROLE_CEO")
+        )) {
+            RequisitionRepository repository = mock(RequisitionRepository.class);
+            RequisitionServiceImpl service = service(repository);
+            Requisition rejected = managerTeamRequisition(
+                    7L, RequisitionStatus.REJECTED_BY_BOOKKEEPER);
+            when(repository.findForUpdate(1L)).thenReturn(Optional.of(rejected));
+
+            ResponseStatusException exception = assertThrows(
+                    ResponseStatusException.class,
+                    () -> service.updateStatus(
+                            principal,
+                            1L,
+                            new RequisitionStatusUpdateRequest(
+                                    RequisitionStatus.REJECTED,
+                                    "Not allowed"
+                            )
+                    )
+            );
+
+            assertEquals(409, exception.getStatusCode().value());
+            verify(repository, never()).saveAndFlush(any());
+        }
+    }
+
+    @Test
     void bookkeeperCanCompleteProcessingRequisition() {
         RequisitionRepository repository = mock(RequisitionRepository.class);
         RequisitionServiceImpl service = service(repository);
+        AiCaptureOutbox outbox = mock(AiCaptureOutbox.class);
+        ReflectionTestUtils.setField(service, "aiCaptureOutbox", outbox);
         Requisition processing = requisition(1L, RequisitionStatus.PROCESSING);
         when(repository.findDetailedById(1L)).thenReturn(Optional.of(processing));
         when(repository.findForUpdate(1L)).thenReturn(Optional.of(processing));
@@ -419,7 +530,30 @@ class RequisitionServiceImplTests {
         assertNull(processing.getStatusNote());
         assertEquals(RequisitionStatus.COMPLETED, response.status());
         assertTrue(response.actions().allowedStatusTransitions().isEmpty());
-        verify(repository).saveAndFlush(processing);
+        var persistenceOrder = inOrder(repository, outbox);
+        persistenceOrder.verify(repository).saveAndFlush(processing);
+        persistenceOrder.verify(outbox).afterCommit(1L);
+    }
+
+    @Test
+    void gratisCompletionDoesNotEnterAiCaptureOutbox() {
+        RequisitionRepository repository = mock(RequisitionRepository.class);
+        Requisition processing = requisition(1L, RequisitionStatus.PROCESSING);
+        processing.setType(RequisitionType.GRATIS);
+        when(repository.findDetailedById(1L)).thenReturn(Optional.of(processing));
+        when(repository.findForUpdate(1L)).thenReturn(Optional.of(processing));
+        when(repository.saveAndFlush(processing)).thenReturn(processing);
+        RequisitionServiceImpl service = service(repository);
+        AiCaptureOutbox outbox = mock(AiCaptureOutbox.class);
+        ReflectionTestUtils.setField(service, "aiCaptureOutbox", outbox);
+
+        service.updateStatus(
+                principal(30L, "ROLE_BOOKKEEPER"),
+                1L,
+                new RequisitionStatusUpdateRequest(RequisitionStatus.COMPLETED, "ignored")
+        );
+
+        verifyNoInteractions(outbox);
     }
 
     @Test
@@ -761,10 +895,10 @@ class RequisitionServiceImplTests {
         return new RequisitionServiceImpl(
                 repository,
                 mock(CustomerRepository.class),
-                productRepository,
                 mock(AppUserRepository.class),
                 pdfService,
-                emailService
+                emailService,
+                new RequisitionItemSynchronizer(productRepository)
         );
     }
 
@@ -775,7 +909,7 @@ class RequisitionServiceImplTests {
         when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
         when(repository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var service = service(repository);
-        String revision = com.ognjen.diplomski.service.RequisitionRevision.of(requisition);
+        String revision = com.ognjen.diplomski.domain.requisition.RequisitionRevision.of(requisition);
         service.updateStatus(principal(7L, "ROLE_MANAGER"), 1L,
                 new RequisitionStatusUpdateRequest(RequisitionStatus.APPROVED, null, revision));
         var conflict = assertThrows(ResponseStatusException.class, () -> service.updateStatus(
@@ -796,7 +930,7 @@ class RequisitionServiceImplTests {
         var product = product(1L, "P001", "2");
         requisition.getItems().add(item(1L, requisition, product, "1"));
         when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
-        String oldRevision = com.ognjen.diplomski.service.RequisitionRevision.of(requisition);
+        String oldRevision = com.ognjen.diplomski.domain.requisition.RequisitionRevision.of(requisition);
         requisition.setNote("Saved by another user");
         var service = service(repository, products, mock(RequisitionPdfService.class));
         var request = new RequisitionRequest(100L, RequisitionType.NORMAL, null, null, "Old edit",
@@ -817,7 +951,7 @@ class RequisitionServiceImplTests {
         var repository = mock(RequisitionRepository.class);
         var requisition = managerTeamRequisition(7L, RequisitionStatus.SUBMITTED);
         when(repository.findForUpdate(1L)).thenReturn(Optional.of(requisition));
-        String revision = com.ognjen.diplomski.service.RequisitionRevision.of(requisition);
+        String revision = com.ognjen.diplomski.domain.requisition.RequisitionRevision.of(requisition);
         requisition.setNote("Edited after confirmation was opened");
         var conflict = assertThrows(ResponseStatusException.class, () -> service(repository).updateStatus(
                 principal(7L, "ROLE_MANAGER"), 1L,

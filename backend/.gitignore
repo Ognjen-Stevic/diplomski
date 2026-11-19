@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Runtime AI JSONL audit streams and compressed archives.
+logs/ai/
+
+# Local environment secrets and database backups.
+.env.properties
+database/*.backup
+database/*.dump

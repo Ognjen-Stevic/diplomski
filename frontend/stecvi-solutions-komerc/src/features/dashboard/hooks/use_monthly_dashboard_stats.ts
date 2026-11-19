@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
-import { useAuth } from "../../auth/hooks/useAuth";
-import type { AuthUser } from "../../auth/types/auth_user";
+import { useSessionRequest } from "../../../shared/hooks/use_session_request";
 import { reportApi } from "../../report/report_api";
 import { formatInteger, formatLiters, formatRsd } from "../../report/utils/sales_report.utils";
-import { requisitionApi, type MonthlyRequisition } from "../../requisition/requisition_api";
+import { requisitionApi } from "../../requisition/requisition_api";
 
 export type MonthlyDashboardStatsMode = "sales" | "bookkeeper" | "ceo";
 
@@ -14,27 +13,6 @@ export type DashboardStatItem = {
     label: string;
 };
 
-type StatsState = {
-    user: AuthUser | null;
-    mode: MonthlyDashboardStatsMode;
-    retryKey: number;
-    stats: DashboardStatItem[];
-    loading: boolean;
-    error: string;
-};
-
-const INITIAL_STATE: StatsState = {
-    user: null,
-    mode: "sales",
-    retryKey: -1,
-    stats: [],
-    loading: false,
-    error: "",
-};
-
-const completedRequisitions = (monthly: MonthlyRequisition) =>
-    monthly.requisitions.filter((requisition) => requisition.status === "completed");
-
 async function loadStats(
     mode: MonthlyDashboardStatsMode,
     year: number,
@@ -42,37 +20,31 @@ async function loadStats(
     signal: AbortSignal,
 ): Promise<DashboardStatItem[]> {
     if (mode === "bookkeeper") {
-        const requisitions = await requisitionApi.getMonthlyRequisition(year, month, signal);
-        const cancelledCount = requisitions.requisitions.filter(
-            (requisition) => requisition.status === "cancelled_by_manager"
-                || requisition.status === "cancelled_by_bookkeeper",
-        ).length;
-        const completedCount = completedRequisitions(requisitions).length;
+        const statistics = await requisitionApi.getDashboardMonthlyStatistics(year, month, signal);
 
         return [
             {
                 id: "cancelled-requisitions",
-                value: formatInteger(cancelledCount),
+                value: formatInteger(statistics.cancelledCount),
                 label: "Otkazano ovog meseca",
             },
             {
                 id: "completed-requisitions",
-                value: formatInteger(completedCount),
+                value: formatInteger(statistics.completedCount),
                 label: "Završena trebovanja ovog meseca",
             },
         ];
     }
 
     if (mode === "ceo") {
-        const [requisitions, report] = await Promise.all([
-            requisitionApi.getMonthlyRequisition(year, month, signal),
+        const [statistics, report] = await Promise.all([
+            requisitionApi.getDashboardMonthlyStatistics(year, month, signal),
             reportApi.getMonthlyReport(year, month, null, null, signal),
         ]);
-        const completed = completedRequisitions(requisitions);
         return [
             {
                 id: "completed-requisitions",
-                value: formatInteger(completed.length),
+                value: formatInteger(statistics.completedCount),
                 label: "Ukupno završenih trebovanja ovog meseca",
             },
             {
@@ -93,24 +65,20 @@ async function loadStats(
         ];
     }
 
-    const [requisitions, report] = await Promise.all([
-        requisitionApi.getMonthlyRequisition(year, month, signal),
+    const [statistics, report] = await Promise.all([
+        requisitionApi.getDashboardMonthlyStatistics(year, month, signal),
         reportApi.getMonthlyReport(year, month, null, null, signal),
     ]);
-    const completed = completedRequisitions(requisitions);
-    const completedGratisCount = completed.filter(
-        (requisition) => requisition.type === "gratis",
-    ).length;
 
     return [
         {
             id: "requisitions",
-            value: formatInteger(completed.length),
+            value: formatInteger(statistics.completedCount),
             label: "Trebovanja ovog meseca",
         },
         {
             id: "gratis-requisitions",
-            value: formatInteger(completedGratisCount),
+            value: formatInteger(statistics.completedGratisCount),
             label: "Gratis trebovanja ovog meseca",
         },
         {
@@ -127,73 +95,23 @@ async function loadStats(
 }
 
 export function useMonthlyDashboardStats(mode: MonthlyDashboardStatsMode) {
-    const { user } = useAuth();
-    const [state, setState] = useState<StatsState>(INITIAL_STATE);
-    const [retryKey, setRetryKey] = useState(0);
-
-    useEffect(() => {
-        const controller = new AbortController();
-
-        void Promise.resolve().then(async () => {
-            if (controller.signal.aborted || !user) return;
-
-            setState({
-                user,
-                mode,
-                retryKey,
-                stats: [],
-                loading: true,
-                error: "",
-            });
-
-            try {
-                const currentDate = new Date();
-                const stats = await loadStats(
-                    mode,
-                    currentDate.getFullYear(),
-                    currentDate.getMonth() + 1,
-                    controller.signal,
-                );
-                if (!controller.signal.aborted) {
-                    setState({
-                        user,
-                        mode,
-                        retryKey,
-                        stats,
-                        loading: false,
-                        error: "",
-                    });
-                }
-            } catch (requestError) {
-                if (controller.signal.aborted) return;
-                setState({
-                    user,
-                    mode,
-                    retryKey,
-                    stats: [],
-                    loading: false,
-                    error: requestError instanceof Error
-                        ? requestError.message
-                        : "Podaci za ovaj mesec nisu učitani.",
-                });
-            }
-        });
-
-        return () => controller.abort();
-    }, [mode, retryKey, user]);
-
-    const retry = useCallback(() => {
-        setRetryKey((current) => current + 1);
-    }, []);
-
-    const stateMatchesRequest = state.user === user
-        && state.mode === mode
-        && state.retryKey === retryKey;
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const load = useCallback(
+        (signal: AbortSignal) => loadStats(mode, year, month, signal),
+        [mode, month, year],
+    );
+    const query = useSessionRequest(
+        `dashboard-stats:${mode}:${year}:${month}`,
+        load,
+        { errorMessage: "Podaci za ovaj mesec nisu učitani." },
+    );
 
     return {
-        stats: stateMatchesRequest ? state.stats : [],
-        loading: user !== null && (!stateMatchesRequest || state.loading),
-        error: stateMatchesRequest ? state.error : "",
-        retry,
+        stats: query.data ?? [],
+        loading: query.loading,
+        error: query.error,
+        retry: query.reload,
     };
 }

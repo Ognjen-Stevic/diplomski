@@ -2,6 +2,7 @@ package com.ognjen.diplomski.repository;
 
 import com.ognjen.diplomski.entity.Requisition;
 import com.ognjen.diplomski.entity.enums.PackageType;
+import com.ognjen.diplomski.entity.enums.GratisReason;
 import com.ognjen.diplomski.entity.enums.RequisitionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,65 +13,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface SalesReportRepository extends JpaRepository<Requisition, Long> {
-
-    @Query("""
-            SELECT DISTINCT requisition
-            FROM Requisition requisition
-            JOIN FETCH requisition.items item
-            JOIN FETCH item.product
-            WHERE requisition.salesRep.id = :salesRepId
-              AND requisition.type = :type
-              AND requisition.status = com.ognjen.diplomski.entity.enums.RequisitionStatus.COMPLETED
-              AND requisition.createdAt >= :start
-              AND requisition.createdAt < :end
-            ORDER BY requisition.createdAt ASC
-            """)
-    List<Requisition> findForReport(
-            @Param("salesRepId") Long salesRepId,
-            @Param("type") RequisitionType type,
-            @Param("start") OffsetDateTime start,
-            @Param("end") OffsetDateTime end
-    );
-
-    @Query("""
-            SELECT DISTINCT requisition
-            FROM Requisition requisition
-            JOIN FETCH requisition.salesRep salesRep
-            JOIN FETCH requisition.items item
-            JOIN FETCH item.product
-            WHERE UPPER(salesRep.role.name) = 'SALES_REP'
-              AND requisition.type = :type
-              AND requisition.status = com.ognjen.diplomski.entity.enums.RequisitionStatus.COMPLETED
-              AND requisition.createdAt >= :start
-              AND requisition.createdAt < :end
-            ORDER BY requisition.createdAt ASC
-            """)
-    List<Requisition> findAllForReport(
-            @Param("type") RequisitionType type,
-            @Param("start") OffsetDateTime start,
-            @Param("end") OffsetDateTime end
-    );
-
-    @Query("""
-            SELECT DISTINCT requisition
-            FROM Requisition requisition
-            JOIN FETCH requisition.salesRep salesRep
-            JOIN FETCH requisition.items item
-            JOIN FETCH item.product
-            WHERE salesRep.manager.id = :managerId
-              AND UPPER(salesRep.role.name) = 'SALES_REP'
-              AND requisition.type = :type
-              AND requisition.status = com.ognjen.diplomski.entity.enums.RequisitionStatus.COMPLETED
-              AND requisition.createdAt >= :start
-              AND requisition.createdAt < :end
-            ORDER BY requisition.createdAt ASC
-            """)
-    List<Requisition> findTeamForReport(
-            @Param("managerId") Long managerId,
-            @Param("type") RequisitionType type,
-            @Param("start") OffsetDateTime start,
-            @Param("end") OffsetDateTime end
-    );
 
     @Query("""
             SELECT product.code AS productCode,
@@ -121,6 +63,116 @@ public interface SalesReportRepository extends JpaRepository<Requisition, Long> 
     List<TeamMonthlyIncentiveProjection> findTeamMonthlyIncentives(
             @Param("managerId") Long managerId,
             @Param("type") RequisitionType type,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
+            SELECT product.code AS productCode,
+                   product.name AS productName,
+                   product.pictureUrl AS pictureUrl,
+                   SUM(item.quantity) AS units,
+                   product.volumeLiters AS volumeLiters,
+                   product.packageType AS packageType,
+                   SUM(item.quantity * product.stimulationPerUnit) AS salesRepIncentive,
+                   SUM(item.quantity * product.managerStimulationPerUnit) AS managerIncentive
+            FROM Requisition requisition
+            JOIN requisition.salesRep salesRep
+            JOIN requisition.items item
+            JOIN item.product product
+            WHERE UPPER(salesRep.role.name) = 'SALES_REP'
+              AND (:salesRepId IS NULL OR salesRep.id = :salesRepId)
+              AND (:managerId IS NULL OR salesRep.manager.id = :managerId)
+              AND requisition.type = :type
+              AND requisition.status = com.ognjen.diplomski.entity.enums.RequisitionStatus.COMPLETED
+              AND requisition.createdAt >= :start
+              AND requisition.createdAt < :end
+            GROUP BY product.id, product.code, product.name, product.pictureUrl,
+                     product.volumeLiters, product.packageType
+            ORDER BY product.name ASC, product.code ASC
+            """)
+    List<ProductSalesAggregateProjection> findProductAggregates(
+            @Param("salesRepId") Long salesRepId,
+            @Param("managerId") Long managerId,
+            @Param("type") RequisitionType type,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
+            SELECT MONTH(requisition.createdAt) AS month,
+                   SUM(item.quantity * product.stimulationPerUnit) AS salesRepIncentive,
+                   SUM(item.quantity * product.managerStimulationPerUnit) AS managerIncentive
+            FROM Requisition requisition
+            JOIN requisition.salesRep salesRep
+            JOIN requisition.items item
+            JOIN item.product product
+            WHERE UPPER(salesRep.role.name) = 'SALES_REP'
+              AND (:salesRepId IS NULL OR salesRep.id = :salesRepId)
+              AND (:managerId IS NULL OR salesRep.manager.id = :managerId)
+              AND requisition.type = :type
+              AND requisition.status = com.ognjen.diplomski.entity.enums.RequisitionStatus.COMPLETED
+              AND requisition.createdAt >= :start
+              AND requisition.createdAt < :end
+            GROUP BY MONTH(requisition.createdAt)
+            ORDER BY MONTH(requisition.createdAt) ASC
+            """)
+    List<MonthlyIncentiveAggregateProjection> findMonthlyIncentiveAggregates(
+            @Param("salesRepId") Long salesRepId,
+            @Param("managerId") Long managerId,
+            @Param("type") RequisitionType type,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
+            SELECT product.code AS productCode,
+                   product.name AS productName,
+                   product.pictureUrl AS pictureUrl,
+                   SUM(item.quantity) AS units,
+                   product.volumeLiters AS volumeLiters,
+                   product.packageType AS packageType
+            FROM Requisition requisition
+            JOIN requisition.salesRep salesRep
+            JOIN requisition.items item
+            JOIN item.product product
+            WHERE UPPER(salesRep.role.name) = 'SALES_REP'
+              AND (:salesRepId IS NULL OR salesRep.id = :salesRepId)
+              AND (:managerId IS NULL OR salesRep.manager.id = :managerId)
+              AND requisition.type = com.ognjen.diplomski.entity.enums.RequisitionType.GRATIS
+              AND requisition.status = com.ognjen.diplomski.entity.enums.RequisitionStatus.COMPLETED
+              AND requisition.createdAt >= :start
+              AND requisition.createdAt < :end
+            GROUP BY product.id, product.code, product.name, product.pictureUrl,
+                     product.volumeLiters, product.packageType
+            ORDER BY product.name ASC, product.code ASC
+            """)
+    List<GratisProductAggregateProjection> findGratisProductAggregates(
+            @Param("salesRepId") Long salesRepId,
+            @Param("managerId") Long managerId,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
+            SELECT requisition.gratisReason AS reason,
+                   COALESCE(SUM(item.quantity * product.volumeLiters), 0) AS totalLiters
+            FROM Requisition requisition
+            JOIN requisition.salesRep salesRep
+            LEFT JOIN requisition.items item
+            LEFT JOIN item.product product
+            WHERE UPPER(salesRep.role.name) = 'SALES_REP'
+              AND (:salesRepId IS NULL OR salesRep.id = :salesRepId)
+              AND (:managerId IS NULL OR salesRep.manager.id = :managerId)
+              AND requisition.type = com.ognjen.diplomski.entity.enums.RequisitionType.GRATIS
+              AND requisition.status = com.ognjen.diplomski.entity.enums.RequisitionStatus.COMPLETED
+              AND requisition.createdAt >= :start
+              AND requisition.createdAt < :end
+            GROUP BY requisition.gratisReason
+            """)
+    List<GratisReasonAggregateProjection> findGratisReasonAggregates(
+            @Param("salesRepId") Long salesRepId,
+            @Param("managerId") Long managerId,
             @Param("start") OffsetDateTime start,
             @Param("end") OffsetDateTime end
     );
@@ -234,6 +286,52 @@ public interface SalesReportRepository extends JpaRepository<Requisition, Long> 
         BigDecimal getIncentivePerItem();
 
         BigDecimal getTotalIncentive();
+    }
+
+    interface ProductSalesAggregateProjection {
+        String getProductCode();
+
+        String getProductName();
+
+        String getPictureUrl();
+
+        BigDecimal getUnits();
+
+        BigDecimal getVolumeLiters();
+
+        PackageType getPackageType();
+
+        BigDecimal getSalesRepIncentive();
+
+        BigDecimal getManagerIncentive();
+    }
+
+    interface MonthlyIncentiveAggregateProjection {
+        Integer getMonth();
+
+        BigDecimal getSalesRepIncentive();
+
+        BigDecimal getManagerIncentive();
+    }
+
+    interface GratisProductAggregateProjection {
+        String getProductCode();
+
+        String getProductName();
+
+        String getPictureUrl();
+
+        BigDecimal getUnits();
+
+        BigDecimal getVolumeLiters();
+
+        PackageType getPackageType();
+    }
+
+    interface GratisReasonAggregateProjection {
+        GratisReason getReason();
+
+        BigDecimal getTotalLiters();
     }
 
     interface TeamMonthlyIncentiveProjection {

@@ -11,18 +11,18 @@ import type {
 import { MobileNavItem } from "./mobile_nav_item";
 
 type MobileBottomNavigationProps = {
-    primaryNavigation: NavigationItem[];
+    navigation: NavigationItem[];
 };
 
 export function MobileBottomNavigation({
-    primaryNavigation,
+    navigation,
 }: MobileBottomNavigationProps) {
     const [actionsOpen, setActionsOpen] = useState(false);
     const closeActions = useCallback(() => setActionsOpen(false), []);
     const quickActions = useVisibleQuickActions();
     const items = useMemo(
-        () => selectBottomNavigationItems(primaryNavigation, quickActions),
-        [primaryNavigation, quickActions],
+        () => selectBottomNavigationItems(navigation, quickActions),
+        [navigation, quickActions],
     );
 
     return (
@@ -58,16 +58,17 @@ export function MobileBottomNavigation({
 }
 
 function selectBottomNavigationItems(
-    primaryNavigation: NavigationItem[],
+    navigation: NavigationItem[],
     quickActions: QuickAction[],
 ) {
     const itemAt = (position: MobileNavigationPosition) =>
-        primaryNavigation.find((item) => item.mobilePosition === position);
+        navigation.find((item) => item.mobilePosition === position);
     const home = itemAt(1);
     const configuredSecondary = itemAt(2);
     const configuredRequisitions = itemAt(4);
+    const team = navigation.find((item) => item.id === "team");
     const configuredRoutes = new Set(
-        [home, configuredSecondary, configuredRequisitions]
+        [home, configuredSecondary, configuredRequisitions, team]
             .filter((item): item is NavigationItem => item !== undefined)
             .map((item) => item.route),
     );
@@ -89,9 +90,9 @@ function selectBottomNavigationItems(
         home,
         secondary: configuredSecondary ?? nextFallback("secondary"),
         requisitions: configuredRequisitions ?? nextFallback("requisitions"),
-        quickAction: preferredQuickAction
+        quickAction: team ?? (preferredQuickAction
             ? toNavigationItem(preferredQuickAction, "quick-action")
-            : nextFallback("quick-action"),
+            : nextFallback("quick-action")),
     };
 }
 

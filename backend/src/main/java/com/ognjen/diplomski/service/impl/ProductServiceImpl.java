@@ -4,17 +4,20 @@ import com.ognjen.diplomski.exception.InvalidRequestException;
 
 import com.ognjen.diplomski.dto.ProductCreateRequest;
 import com.ognjen.diplomski.dto.ProductManagementResponse;
+import com.ognjen.diplomski.dto.ProductPageResponse;
 import com.ognjen.diplomski.dto.ProductResponse;
+import com.ognjen.diplomski.dto.ProductStatusFilter;
 import com.ognjen.diplomski.entity.Product;
 import com.ognjen.diplomski.entity.enums.PackageType;
 import com.ognjen.diplomski.repository.ProductRepository;
 import com.ognjen.diplomski.security.AppUserPrincipal;
 import com.ognjen.diplomski.service.ProductService;
-import com.ognjen.diplomski.service.ProductImageStorage;
+import com.ognjen.diplomski.storage.ProductImageStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,11 +49,28 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProductManagementResponse> getProducts(AppUserPrincipal principal) {
+    public ProductPageResponse getProducts(
+            AppUserPrincipal principal,
+            String search,
+            ProductStatusFilter status,
+            Pageable pageable
+    ) {
         requireProductReader(principal);
-        return productRepository.findAllByOrderByNameAsc().stream()
-                .map(ProductServiceImpl::toManagementResponse)
-                .toList();
+        String normalizedSearch = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+        ProductStatusFilter effectiveStatus = status == null ? ProductStatusFilter.ALL : status;
+        Boolean active = switch (effectiveStatus) {
+            case ACTIVE -> true;
+            case INACTIVE -> false;
+            case ALL -> null;
+        };
+        return ProductPageResponse.from(
+                productRepository.searchManagement(
+                        normalizedSearch,
+                        !normalizedSearch.isEmpty(),
+                        active,
+                        pageable
+                ).map(ProductServiceImpl::toManagementResponse)
+        );
     }
 
     @Override

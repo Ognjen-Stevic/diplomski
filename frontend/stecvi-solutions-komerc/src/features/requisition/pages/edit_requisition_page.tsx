@@ -1,4 +1,5 @@
 import { useRequisition, useRequisitionMutationScope } from "../hooks/use_requisition_data";
+import { useRequisitionReturnDestination } from "../hooks/use_requisition_route";
 import { requisitionPayload } from "../utils/requisition_payload";
 import { authApi } from "../../auth/auth_api";
 import { APP_ROUTES } from "../../../app/routes";
@@ -40,6 +41,7 @@ export default function EditRequisitionPage() {
 
 function EditRequisitionForm({ requisition }: { requisition: RequisitionListItem }) {
     const navigate = useNavigate();
+    const returnDestination = useRequisitionReturnDestination();
     const isCurrent = useRequisitionMutationScope();
     const { user } = useAuth();
     const canUseEditPage = user?.role === "SALES_REP" || user?.role === "MANAGER";
@@ -103,7 +105,7 @@ function EditRequisitionForm({ requisition }: { requisition: RequisitionListItem
                                     customReason, note, expectedRevision: requisition.revision,
                                     items: selectedProducts.map(({ product, quantity }) => ({ productCode: product.code, quantity })),
                                 }));
-                                if (isCurrent()) navigate(APP_ROUTES.requisitions, { replace: true });
+                                if (isCurrent()) navigate(returnDestination, { replace: true });
                             }}
                         >
                             <RequisitionTypeSection

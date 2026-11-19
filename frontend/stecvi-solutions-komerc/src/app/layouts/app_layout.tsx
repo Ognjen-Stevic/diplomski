@@ -14,10 +14,7 @@ type AppLayoutProps = {
 
 export default function AppLayout({ children }: AppLayoutProps) {
     const auth = useAuth();
-    const {
-        navigation,
-        mobilePrimaryNavigation,
-    } = useApplicationNavigation();
+    const { navigation } = useApplicationNavigation();
 
     if (!auth.user) {
         return <Navigate to={APP_ROUTES.login} replace />;
@@ -39,7 +36,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
 
             <MobileBottomNavigation
-                primaryNavigation={mobilePrimaryNavigation}
+                navigation={navigation}
             />
         </div>
     );

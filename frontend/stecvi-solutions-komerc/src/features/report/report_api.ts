@@ -1,4 +1,4 @@
-import { apiRequest, authenticatedFetch } from "../../app/api/http_client";
+import { apiRequest, downloadAuthenticatedFile } from "../../app/api/http_client";
 import type {
     GratisYtdReportData,
     MonthlyGratisReportData,
@@ -65,50 +65,12 @@ const GRATIS_REASON_LABELS: Record<ApiGratisReason, string> = {
 };
 
 async function downloadReport(path: string, fallbackFilename: string, signal?: AbortSignal): Promise<void> {
-    const response = await authenticatedFetch(path, { signal });
-
-    if (!response.ok) {
-        let message = "Excel izveštaj nije preuzet.";
-        try {
-            const body = await response.json() as { message?: string; detail?: string };
-            message = body.message ?? body.detail ?? message;
-        } catch {
-            // Use the fallback message when the server does not return JSON.
-        }
-        throw new Error(message);
-    }
-
-    const filename = getDownloadFilename(response.headers.get("Content-Disposition")) ?? fallbackFilename;
-    const blob = await response.blob();
-    signal?.throwIfAborted();
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    try {
-        link.href = objectUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-    } finally {
-        link.remove();
-        URL.revokeObjectURL(objectUrl);
-    }
-}
-
-function getDownloadFilename(contentDisposition: string | null): string | null {
-    if (!contentDisposition) {
-        return null;
-    }
-
-    const encodedFilename = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-    if (encodedFilename) {
-        try {
-            return decodeURIComponent(encodedFilename);
-        } catch {
-            return encodedFilename;
-        }
-    }
-
-    return contentDisposition.match(/filename="?([^";]+)"?/i)?.[1] ?? null;
+    return downloadAuthenticatedFile(
+        path,
+        fallbackFilename,
+        "Excel izveštaj nije preuzet.",
+        signal,
+    );
 }
 
 function toProducts(products: ApiProductReportRow[]): ProductReportRow[] {

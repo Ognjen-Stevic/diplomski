@@ -1,4 +1,5 @@
 import type { RequestCatalogItem } from "../../types/request_catalog_item";
+import { Minus, Plus } from "lucide-react";
 
 type RequestItemsTableProps<T extends RequestCatalogItem> = {
     products: readonly T[];
@@ -9,6 +10,8 @@ type RequestItemsTableProps<T extends RequestCatalogItem> = {
     touchedQuantities: boolean[];
     submitted: boolean;
     hasSelectedProduct: boolean;
+    quantitySteppers?: boolean;
+    visibleProductKeys?: ReadonlySet<string>;
     onQuantityChange: (index: number, value: string) => void;
     onQuantityBlur: (index: number) => void;
 };
@@ -22,6 +25,8 @@ export function RequestItemsTable<T extends RequestCatalogItem>({
     touchedQuantities,
     submitted,
     hasSelectedProduct,
+    quantitySteppers = false,
+    visibleProductKeys,
     onQuantityChange,
     onQuantityBlur,
 }: RequestItemsTableProps<T>) {
@@ -44,7 +49,16 @@ export function RequestItemsTable<T extends RequestCatalogItem>({
                     </thead>
                     <tbody className="divide-y divide-dust-grey/75">
                         {products.map((product, index) => {
+                            if (visibleProductKeys && !visibleProductKeys.has(product.key)) return null;
                             const showError = (submitted || touchedQuantities[index]) && Boolean(quantityErrors[index]);
+                            const minimumQuantity = product.active === false ? 1 : 0;
+                            const numericQuantity = Number(quantities[index]);
+                            const stepQuantity = (change: number) => {
+                                const currentQuantity = Number.isSafeInteger(numericQuantity)
+                                    ? numericQuantity
+                                    : minimumQuantity;
+                                onQuantityChange(index, String(Math.max(minimumQuantity, currentQuantity + change)));
+                            };
                             return (
                                 <tr key={product.key} className="transition hover:bg-yale-blue/[0.025]">
                                     <th scope="row" className="px-5 py-3 text-sm font-medium text-graphite sm:px-6">
@@ -72,23 +86,46 @@ export function RequestItemsTable<T extends RequestCatalogItem>({
                                         </span>
                                     </th>
                                     <td className="px-5 py-2.5 sm:px-6">
-                                        <div className="ml-auto w-28">
-                                            <input
-                                                type="number"
-                                                min={product.active === false ? "1" : "0"}
-                                                step="1"
-                                                inputMode="numeric"
-                                                value={quantities[index]}
-                                                onChange={(event) => onQuantityChange(index, event.target.value)}
-                                                onBlur={() => onQuantityBlur(index)}
-                                                aria-label={`Količina za ${product.name}`}
-                                                aria-invalid={showError}
-                                                className={`w-full rounded-lg border px-3 py-2 text-right font-semibold tabular-nums outline-none transition focus:ring-2 ${
-                                                    showError
-                                                        ? "border-red-500 text-red-800 focus:ring-red-100"
-                                                        : "border-dust-grey focus:border-stormy-teal focus:ring-stormy-teal/20"
-                                                }`}
-                                            />
+                                        <div className={quantitySteppers ? "ml-auto w-36" : "ml-auto w-28"}>
+                                            <div className={quantitySteppers ? "flex items-center justify-end gap-2" : undefined}>
+                                                {quantitySteppers && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => stepQuantity(-1)}
+                                                        disabled={Number.isSafeInteger(numericQuantity) && numericQuantity <= minimumQuantity}
+                                                        aria-label={`Smanji količinu za ${product.name}`}
+                                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-dust-grey bg-white text-yale-blue transition hover:border-stormy-teal hover:bg-stormy-teal/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    >
+                                                        <Minus className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                                <input
+                                                    type="number"
+                                                    min={String(minimumQuantity)}
+                                                    step="1"
+                                                    inputMode="numeric"
+                                                    value={quantities[index]}
+                                                    onChange={(event) => onQuantityChange(index, event.target.value)}
+                                                    onBlur={() => onQuantityBlur(index)}
+                                                    aria-label={`Količina za ${product.name}`}
+                                                    aria-invalid={showError}
+                                                    className={`${quantitySteppers ? "h-9 w-12 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" : "w-full px-3 text-right"} rounded-lg border py-2 font-semibold tabular-nums outline-none transition focus:ring-2 ${
+                                                        showError
+                                                            ? "border-red-500 text-red-800 focus:ring-red-100"
+                                                            : "border-dust-grey focus:border-stormy-teal focus:ring-stormy-teal/20"
+                                                    }`}
+                                                />
+                                                {quantitySteppers && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => stepQuantity(1)}
+                                                        aria-label={`Povećaj količinu za ${product.name}`}
+                                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-dust-grey bg-white text-yale-blue transition hover:border-stormy-teal hover:bg-stormy-teal/10"
+                                                    >
+                                                        <Plus className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                            </div>
                                             {showError && (
                                                 <p role="alert" className="mt-1 text-right text-xs text-red-700">{quantityErrors[index]}</p>
                                             )}
@@ -97,6 +134,13 @@ export function RequestItemsTable<T extends RequestCatalogItem>({
                                 </tr>
                             );
                         })}
+                        {visibleProductKeys?.size === 0 && (
+                            <tr>
+                                <td colSpan={2} className="px-5 py-8 text-center text-sm text-graphite/55 sm:px-6">
+                                    Nema proizvoda u izabranoj kategoriji.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

@@ -45,7 +45,7 @@ vi.mock("../features/report/report_api", () => ({
   reportApi: { getMonthlyReport: mocks.report },
 }));
 vi.mock("../features/requisition/requisition_api", () => ({
-  requisitionApi: { getMonthlyRequisition: mocks.monthly },
+  requisitionApi: { getDashboardMonthlyStatistics: mocks.monthly },
 }));
 vi.mock("../app/layouts/app_layout", () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -97,7 +97,11 @@ beforeEach(() => {
 });
 describe("data correctness", () => {
   it("CEO dashboard consumes numeric company totals even with no presentation cards", async () => {
-    mocks.monthly.mockResolvedValue({ requisitions: [] });
+    mocks.monthly.mockResolvedValue({
+      completedCount: 0,
+      completedGratisCount: 0,
+      cancelledCount: 0,
+    });
     mocks.report.mockResolvedValue({
       summary: [],
       metrics: {
@@ -282,6 +286,21 @@ it("failed status confirmation stays open, retries, and prevents duplicate in-fl
   await waitFor(() =>
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
   );
+});
+it("manager rejection is available and still requires a note", () => {
+  const change = vi.fn().mockResolvedValue(undefined);
+  render(
+    <RequisitionStatusControl
+      allowedTransitions={["approved", "rejected", "cancelled_by_manager"]}
+      onStatusChange={change}
+    />,
+  );
+  const status = screen.getByRole("combobox", { name: "Promeni status" });
+  expect(screen.getByRole("option", { name: "Odbijeno" })).toBeInTheDocument();
+  fireEvent.change(status, { target: { value: "rejected" } });
+  fireEvent.click(screen.getByRole("button", { name: "Promeni status" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Napomena je obavezna");
+  expect(change).not.toHaveBeenCalled();
 });
 it("dialog traps focus, blocks Escape while saving and restores focus/scroll", () => {
   const close = vi.fn();

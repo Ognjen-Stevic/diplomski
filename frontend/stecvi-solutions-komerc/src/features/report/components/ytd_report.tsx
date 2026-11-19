@@ -6,7 +6,7 @@ import { useReportExport } from "../hooks/use_report_export";
 import { reportApi } from "../report_api";
 import type { ReportViewProps } from "../types/sales_report.types";
 import { formatRsd } from "../utils/sales_report.utils";
-import { ReportChart } from "./report_chart";
+import { ReportChart } from "../../../shared/components/report/report_chart";
 import { ReportFeedback } from "./report_feedback";
 import { ReportExportButton } from "./report_export_button";
 import { ReportSummaryCards } from "./report_summary_cards";

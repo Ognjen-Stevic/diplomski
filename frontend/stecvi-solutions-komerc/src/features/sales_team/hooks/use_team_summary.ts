@@ -1,6 +1,6 @@
-import { useAuth } from "../../auth/hooks/useAuth";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback } from "react";
 
+import { useSessionRequest } from "../../../shared/hooks/use_session_request";
 import { salesTeamApi } from "../api/sales_team_api";
 import type { TeamSummaryMember } from "../types/sales_team.types";
 
@@ -17,58 +17,22 @@ export function useTeamSummary({
     mode,
     managerId = null,
 }: UseTeamSummaryOptions) {
-    const [members, setMembers] = useState<TeamSummaryMember[]>([]);
-    const [loading, setLoading] = useState(enabled);
-    const [error, setError] = useState("");
-    const { sessionId } = useAuth();
-    const [retryKey, setRetryKey] = useState(0);
-    const requestKey = `${enabled}:${mode}:${managerId ?? "self"}:${retryKey}`;
-    const identity = useMemo(() => ({ requestKey, sessionId }), [requestKey, sessionId]);
-    const [stateKey, setStateKey] = useState(identity);
-
-    useEffect(() => {
-        const controller = new AbortController();
-
-        void Promise.resolve().then(async () => {
-            if (controller.signal.aborted) return;
-
-            setStateKey(identity);
-            setMembers([]);
-            setError("");
-            if (!enabled) {
-                setLoading(false);
-                return;
-            }
-            setLoading(true);
-
-            try {
-                const result = mode === "managers"
-                    ? await salesTeamApi.getManagersOverview(controller.signal)
-                    : await salesTeamApi.getTeamSummary(managerId, controller.signal);
-                if (!controller.signal.aborted) setMembers(result);
-            } catch (requestError) {
-                if (controller.signal.aborted) return;
-                setError(
-                    requestError instanceof Error
-                        ? requestError.message
-                        : "Članovi tima nisu učitani.",
-                );
-            } finally {
-                if (!controller.signal.aborted) setLoading(false);
-            }
-        });
-
-        return () => controller.abort();
-    }, [identity, enabled, managerId, mode, requestKey, retryKey]);
-
-    const retry = useCallback(() => setRetryKey((current) => current + 1), []);
-
-    const stateMatchesRequest = stateKey === identity;
+    const load = useCallback(
+        async (signal: AbortSignal): Promise<TeamSummaryMember[]> => mode === "managers"
+            ? await salesTeamApi.getManagersOverview(signal)
+            : await salesTeamApi.getTeamSummary(managerId, signal),
+        [managerId, mode],
+    );
+    const query = useSessionRequest(
+        `team-summary:${mode}:${managerId ?? "self"}`,
+        load,
+        { enabled, errorMessage: "Članovi tima nisu učitani." },
+    );
 
     return {
-        members: stateMatchesRequest ? members : [],
-        loading: enabled && (!stateMatchesRequest || loading),
-        error: stateMatchesRequest ? error : "",
-        retry,
+        members: query.data ?? [],
+        loading: query.loading,
+        error: query.error,
+        retry: query.reload,
     };
 }

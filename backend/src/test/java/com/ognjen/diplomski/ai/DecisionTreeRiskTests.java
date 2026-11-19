@@ -1,8 +1,11 @@
 package com.ognjen.diplomski.ai;
 
-import static com.ognjen.diplomski.ai.RiskTypes.*;
+import static com.ognjen.diplomski.ai.domain.RiskTypes.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.ognjen.diplomski.ai.domain.CustomerFeatures;
+import com.ognjen.diplomski.ai.lifecycle.training.CaptureCoverage;
+import com.ognjen.diplomski.ai.model.DecisionTreeModel;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -66,6 +69,16 @@ class DecisionTreeRiskTests {
     var model = DecisionTreeModel.load(DecisionTreeModel.save(candidate.tree()));
     for (int c = 0; c < 3; c++) assertEquals(c, DecisionTreeModel.predict(model, features(c)));
     assertFalse(DecisionTreeModel.path(model, features(2)).isEmpty());
+    var trace = DecisionTreeModel.trace(model, features(2));
+    assertEquals(DecisionTreeModel.predict(model, features(2)), trace.prediction());
+    assertFalse(trace.traversal().isEmpty());
+    trace.traversal().forEach(
+        step -> {
+          assertTrue(List.of(Features.NAMES).contains(step.feature()));
+          assertTrue(step.operator().equals("<=") || step.operator().equals(">"));
+          assertTrue(step.selectedBranch().equals("TRUE") || step.selectedBranch().equals("FALSE"));
+          assertTrue(Double.isFinite(step.threshold()));
+        });
   }
 
   @Test
@@ -97,12 +110,12 @@ class DecisionTreeRiskTests {
   @Test
   void missingCaptureCoverageCannotBeLabeledAsInactivity() {
     Instant start = Instant.parse("2025-01-01T00:00:00Z");
-    assertFalse(RiskJobs.covered(start, List.of()));
+    assertFalse(CaptureCoverage.covers(start, List.of()));
     var days = new ArrayList<Instant>();
     for (int i = 1; i <= 60; i++) days.add(start.plus(i, ChronoUnit.DAYS));
-    assertTrue(RiskJobs.covered(start, days));
+    assertTrue(CaptureCoverage.covers(start, days));
     days.remove(20);
-    assertFalse(RiskJobs.covered(start, days));
+    assertFalse(CaptureCoverage.covers(start, days));
   }
 
   @Test

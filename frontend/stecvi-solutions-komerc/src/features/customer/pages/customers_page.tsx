@@ -1,20 +1,20 @@
-import { AiRiskFilter } from "../../ai/components/ai_customer_filters";
-import { useRiskBatch } from "../../ai/use_risk_batch";
-import { RiskBadge } from "../../ai/risk_components";
+import { AiRiskFilter } from "../../../shared/components/ai/risk_filter";
+import { useRiskBatch } from "../../ai/hooks/use_risk_batch";
+import { RiskBadge } from "../../../shared/components/ai/risk_badge";
 import { useSessionRequest } from "../../../shared/hooks/use_session_request";
 import { useCallback, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
 import AppLayout from "../../../app/layouts/app_layout";
 import { APP_ROUTES } from "../../../app/routes";
-import { CustomerSearch } from "../components/customer_search";
+import { CustomerSearch } from "../../../shared/components/customer_search";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { PERMISSIONS } from "../../../roles/permissions";
 import { CustomerCard } from "../components/customer_card";
 import { CustomerDetailsPanel } from "../components/customer_details_panel";
 import Header from "../components/header";
 import NoUserFound from "../components/no_user_found";
-import { Pagination } from "../components/pagination";
+import { Pagination } from "../../../shared/components/pagination";
 import { customerApi } from "../customer_api";
 import type { Customer, CustomerStatus } from "../types/customer.types";
 
@@ -28,7 +28,7 @@ export default function CustomersPage() {
     const [draftSearch, setDraftSearch] = useState({ search, value: search });
     const searchInput = draftSearch.search === search ? draftSearch.value : search;
     const setSearchInput = (value: string) => setDraftSearch({ search, value });
-    const load = useCallback((signal: AbortSignal) => customerApi.findAll(search, page - 1, 50, signal, risk || undefined), [search, page, risk]);
+    const load = useCallback((signal: AbortSignal) => customerApi.findAll(search, page - 1, 24, signal, risk || undefined), [search, page, risk]);
     const query = useSessionRequest(`customers:${page}:${search}:${risk}`, load, hasPermission(PERMISSIONS.CUSTOMERS_READ));
     const linkedId = Number(searchParams.get("customerId"));
     const loadLinked = useCallback((signal: AbortSignal) => customerApi.findById(linkedId, signal), [linkedId]);
@@ -73,7 +73,7 @@ export default function CustomersPage() {
                     ) : (
                         <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                             {customers.map((customer) => (
-                                <div key={customer.id}><RiskBadge level={risks.data?.find(a=>a.customerId===customer.id)?.level ?? "INSUFFICIENT_DATA"}/><CustomerCard
+                                <div key={customer.id} className="flex h-full flex-col gap-2 [&>span]:self-start"><RiskBadge level={risks.data?.find(a=>a.customerId===customer.id)?.level ?? "INSUFFICIENT_DATA"}/><CustomerCard
                                     customer={customer}
                                     onOpen={() => setSelectedCustomer(customer)}
                                     onOrder={() => navigate(`${APP_ROUTES.newRequisition}?customerId=${customer.id}`)}

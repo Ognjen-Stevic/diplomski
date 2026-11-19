@@ -1,7 +1,8 @@
-import { useMonthlyRequisitions } from "../hooks/use_requisition_data";
+import { useMonthlyRequisitionPage, useRequisition } from "../hooks/use_requisition_data";
 import { useRequisitionNavigation } from "../hooks/use_requisition_navigation";
+import { useOpenRequisitionEditor } from "../hooks/use_requisition_route";
 import { APP_ROUTES } from "../../../app/routes";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 
@@ -15,46 +16,58 @@ import { RequisitionTable } from "../components/requisition_table";
 import type { RequisitionStatus } from "../types/requisition.types";
 import { requisitionApi } from "../requisition_api";
 import { REQUISITION_STATUS_LABELS } from "../data/requisition.data";
+import { Pagination } from "../../../shared/components/pagination";
+
+const BOOKKEEPER_STATUS_FILTERS: RequisitionStatus[] = [
+    "approved",
+    "rejected_by_bookkeeper",
+    "processing",
+    "completed",
+    "cancelled_by_bookkeeper",
+];
 
 export default function RequisitionPage() {
     const navigate = useNavigate();
+    const openEditor = useOpenRequisitionEditor();
     const { user, hasPermission } = useAuth();
     const navigation = useRequisitionNavigation();
     const selectedDate = navigation.date;
-    const query = useMonthlyRequisitions(navigation.year, navigation.month);
-    const requisitions = useMemo(() => query.data?.requisitions ?? [], [query.data]);
-    const { loading, error } = query;
-    const [selection, setSelection] = useState<{ id: number; context: object } | null>(null);
-    const selectedRequisition = selection?.context === query.context
-        ? requisitions.find((item) => item.id === selection.id) ?? null : null;
-    const totalCount = query.data?.totalCount ?? 0;
-    const gratisCount = query.data?.gratisCount ?? 0;
     const [customerFilter, setCustomerFilter] = useState("");
     const statusFilter = navigation.status;
+    const [page, setPage] = useState(1);
+    const query = useMonthlyRequisitionPage(
+        navigation.year,
+        navigation.month,
+        page,
+        user?.role === "BOOKKEEPER" ? customerFilter : "",
+        user?.role === "BOOKKEEPER" ? statusFilter : "ALL",
+    );
+    const requisitions = query.data?.requisitions ?? [];
+    const { loading, error } = query;
+    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const selectedQuery = useRequisition(selectedId ?? 0, selectedId !== null);
+    const selectedRequisition = selectedQuery.data ?? null;
+    const totalCount = query.data?.totalCount ?? 0;
+    const gratisCount = query.data?.gratisCount ?? 0;
     const updateStatusFilter = (status: RequisitionStatus | "ALL") => navigation.update(selectedDate, status);
     const selectedPeriod = new Intl.DateTimeFormat("sr-Latn-RS", {
         month: "long",
         year: "numeric",
     }).format(selectedDate);
-    const filteredRequisitions = useMemo(() => {
-        if (user?.role !== "BOOKKEEPER") return requisitions;
-        const customerTerm = customerFilter.trim().toLocaleLowerCase("sr-Latn-RS");
-        return requisitions.filter((requisition) => {
-            const matchesCustomer = !customerTerm
-                || `${requisition.buyerName} ${requisition.companyName}`
-                    .toLocaleLowerCase("sr-Latn-RS")
-                    .includes(customerTerm);
-            const matchesStatus = statusFilter === "ALL" || requisition.status === statusFilter;
-            return matchesCustomer && matchesStatus;
-        });
-    }, [customerFilter, requisitions, statusFilter, user?.role]);
-    const availableStatuses = useMemo(() => {
-        const statuses = new Set(requisitions.map((requisition) => requisition.status));
-        if (statusFilter !== "ALL") statuses.add(statusFilter);
-        return Object.keys(REQUISITION_STATUS_LABELS)
-            .filter((status): status is RequisitionStatus => statuses.has(status as RequisitionStatus));
-    }, [requisitions, statusFilter]);
+    const availableStatuses = user?.role === "BOOKKEEPER"
+        ? BOOKKEEPER_STATUS_FILTERS
+        : Object.keys(REQUISITION_STATUS_LABELS) as RequisitionStatus[];
     const filtersActive = customerFilter.trim() !== "" || statusFilter !== "ALL";
+
+    useEffect(() => {
+        setPage(1);
+        setSelectedId(null);
+    }, [navigation.year, navigation.month, customerFilter, statusFilter]);
+
+    useEffect(() => {
+        if (!query.data || query.data.totalPages === 0 || page <= query.data.totalPages) return;
+        setPage(query.data.totalPages);
+    }, [page, query.data]);
 
     if (!user) return <Navigate to={APP_ROUTES.login} replace />;
     if (!hasPermission(PERMISSIONS.REQUISITIONS_READ)) return <Navigate to={APP_ROUTES.home} replace />;
@@ -68,7 +81,7 @@ export default function RequisitionPage() {
                         <h1 className="mt-1 text-3xl font-bold tracking-tight text-yale-blue sm:text-4xl">Trebovanja</h1>
                         <p className="mt-2 text-sm text-graphite/60">Pregled svih kreiranih trebovanja.</p>
                     </div>
-                    {hasPermission(PERMISSIONS.REQUISITIONS_CREATE) && (
+                    {user.role !== "CEO" && hasPermission(PERMISSIONS.REQUISITIONS_CREATE) && (
                         <button type="button" onClick={() => navigate(APP_ROUTES.newRequisition)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-yale-blue px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-stormy-teal focus:outline-none focus:ring-2 focus:ring-stormy-teal focus:ring-offset-2">
                             <Plus className="h-5 w-5" />
                             Novo trebovanje
@@ -124,10 +137,18 @@ export default function RequisitionPage() {
                 {loading ? <p className="mt-8 text-center text-graphite/60">Učitavanje trebovanja...</p> : error ? null : <>
                     <RequisitionSummaryCards requisitionCount={totalCount} gratisCount={gratisCount} />
                     <RequisitionTable
-                        requisitions={filteredRequisitions}
+                        requisitions={requisitions}
                         period={selectedPeriod}
                         showSalesRep={user.role === "MANAGER" || user.role === "CEO"}
-                        onSelect={(item) => setSelection({ id: item.id, context: query.context })}
+                        onSelect={(item) => setSelectedId(item.id)}
+                    />
+                    <Pagination
+                        currentPage={query.data?.pageNumber ?? page}
+                        totalPages={query.data?.totalPages ?? 0}
+                        onChange={(nextPage) => {
+                            setSelectedId(null);
+                            setPage(nextPage);
+                        }}
                     />
                 </>}
             </main>
@@ -135,10 +156,11 @@ export default function RequisitionPage() {
             {selectedRequisition && (
                 <RequisitionDetailsPanel key={`${selectedRequisition.id}:${selectedRequisition.revision}`}
                     requisition={selectedRequisition}
-                    onClose={() => setSelection(null)}
-                    onEdit={() => navigate(APP_ROUTES.editRequisition(selectedRequisition.id))}
+                    onClose={() => setSelectedId(null)}
+                    onEdit={() => openEditor(selectedRequisition.id)}
                     onStatusChange={async (status, note) => {
                         await requisitionApi.updateStatus(selectedRequisition.id, status, note, selectedRequisition.revision);
+                        setSelectedId(null);
                         query.retry();
                     }}
                 />

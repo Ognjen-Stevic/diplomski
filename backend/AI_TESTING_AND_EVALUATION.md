@@ -1,5 +1,24 @@
 # AI testing, evaluation and delivery report
 
+> **V004 autonomous-lifecycle update:** current verification additionally covers durable
+> completion events, NORMAL/GRATIS filtering, deterministic dataset fingerprints, unchanged-data
+> suppression, database-backed execution state, removed mutation endpoints, read-only CEO
+> monitoring and the absence of lifecycle buttons. The exact latest command results belong in the
+> implementation report; the older counts below document the earlier manual-lifecycle delivery.
+
+## Autonomous lifecycle verification strategy
+
+Unit tests exercise point-in-time leakage controls, the unchanged Smile gates, fingerprint changes
+when any feature/split changes, capture coverage failure, and idempotent outbox insertion. Service
+tests verify that only a transition of a NORMAL requisition to COMPLETED queues capture. MVC tests
+call the former train, refresh and activation paths as every role: non-CEO roles remain forbidden
+and CEO receives 404 because no handler exists. Read-only analytics remain scoped as before.
+
+PostgreSQL verification must confirm V004, one active model, unique observation per requisition,
+unique model per non-null dataset fingerprint, persistent job/dataset history and an unexpired or
+free training lease. Scheduler tests run with scheduling disabled and invoke components directly;
+live verification uses short configurable intervals without inventing data for offline periods.
+
 ## Automated evidence
 
 Commands from backend:
@@ -19,7 +38,15 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
-Full backend suite: **226 tests passed**, 0 failures/errors/skips. Nine new ML tests and seven new HTTP tests supplement the pre-existing 210 tests. Full frontend suite: **33 tests passed** (eight new AI cases plus the existing 25). TypeScript, full ESLint and production build pass. Build includes TypeScript compilation. Final diff whitespace check passes.
+Final V004 verification on 2026-11-03: the full backend suite reports **233 tests passed**, 0 failures/errors/skips. The full frontend suite reports **36 tests passed** across seven files. TypeScript, full ESLint and the production build pass; the build includes TypeScript compilation. Final diff whitespace check passes.
+
+Live PostgreSQL verification also exercised the real scheduler with shortened intervals. One new
+effective dataset produced one candidate and one persisted evaluation. The candidate was safely
+rejected against the active model on the common evaluation partition. Three following periodic
+checks and one restart check recorded SKIPPED because the fingerprint was unchanged; model count
+did not increase and exactly one active model remained. V001-V004 were present, every database
+constraint was validated, the training lease was free, and no orphan outbox or dataset rows were
+found.
 
 ML tests verify point-in-time filtering including observed-at leakage, future-only labels, real Smile fitting, chronological training/evaluation counts, exclusion of immature/overlapping samples, metrics, recommendations, incomplete capture coverage, filtered artifact rejection and prediction identity after artifact reload. The fixture is explicitly synthetic and cannot enter the production model registry. Its separability is an algorithm regression, not evidence of customer-risk accuracy.
 

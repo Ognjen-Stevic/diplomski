@@ -61,7 +61,6 @@ public class SpringSecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/error", "/api/health", "/products/**").permitAll()
-                        .requestMatchers("/api/auth/register").denyAll()
                         .requestMatchers("/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/alerts").authenticated()
                         .requestMatchers("/api/ai/admin/**").hasRole("CEO")

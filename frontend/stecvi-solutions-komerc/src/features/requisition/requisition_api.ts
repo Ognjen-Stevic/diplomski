@@ -1,6 +1,6 @@
 import { authApi } from "../auth/auth_api";
 import { refreshDashboardAlerts } from "../dashboard/alert_api";
-import { apiRequest, authenticatedFetch } from "../../app/api/http_client";
+import { apiRequest, downloadAuthenticatedFile } from "../../app/api/http_client";
 import type { RequisitionListItem } from "./types/requisition.types";
 
 type ApiRequisitionStatus =
@@ -40,11 +40,36 @@ type ApiRequisition = {
     };
 };
 
-type ApiMonthlyRequisition = {
+type ApiRequisitionSummary = {
+    id: number;
+    salesRepId: number;
+    salesRepFirstName: string;
+    salesRepLastName: string;
+    salesRepEmail: string;
+    buyerId: number;
+    buyerObjectName: string;
+    buyerCompanyName: string;
+    buyerEmail: string | null;
+    type: "NORMAL" | "GRATIS";
+    createdAt: string;
+    status: ApiRequisitionStatus;
+};
+
+type ApiRequisitionPage = {
     totalCount: number;
+    totalElements: number;
     gratisCount: number;
     normalCount: number;
-    requisitions: ApiRequisition[];
+    totalPages: number;
+    pageNumber: number;
+    content: ApiRequisitionSummary[];
+};
+
+type ApiRequisitionSummaryPage = {
+    totalElements: number;
+    totalPages: number;
+    pageNumber: number;
+    content: ApiRequisitionSummary[];
 };
 
 export type CreateRequisitionRequest = {
@@ -57,11 +82,27 @@ export type CreateRequisitionRequest = {
     items: Array<{ productCode: string; quantity: number }>;
 };
 
-export type MonthlyRequisition = {
+export type MonthlyRequisitionPage = {
     totalCount: number;
+    totalElements: number;
     gratisCount: number;
     normalCount: number;
+    totalPages: number;
+    pageNumber: number;
     requisitions: RequisitionListItem[];
+};
+
+export type RequisitionSummaryPage = {
+    totalElements: number;
+    totalPages: number;
+    pageNumber: number;
+    requisitions: RequisitionListItem[];
+};
+
+export type DashboardMonthlyStatistics = {
+    completedCount: number;
+    completedGratisCount: number;
+    cancelledCount: number;
 };
 
 async function mutate<T>(path: string, init: RequestInit): Promise<T> {
@@ -72,45 +113,12 @@ async function mutate<T>(path: string, init: RequestInit): Promise<T> {
 }
 
 async function downloadPdf(requisitionId: number, signal?: AbortSignal): Promise<void> {
-    const token = authApi.getToken();
-    const response = await authenticatedFetch(`/api/requisitions/${requisitionId}/pdf`, { signal });
-    if (!response.ok) {
-        let message = "PDF trebovanja nije preuzet.";
-        try {
-            const body = await response.json() as { message?: string; detail?: string };
-            message = body.message ?? body.detail ?? message;
-        } catch { /* Use the fallback for non-JSON responses. */ }
-        throw new Error(message);
-    }
-
-    const disposition = response.headers.get("Content-Disposition");
-    const encodedFilename = disposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-    const plainFilename = disposition?.match(/filename="?([^";]+)"?/i)?.[1];
-    let filename = `trebovanje-${requisitionId}.pdf`;
-    if (encodedFilename) {
-        try {
-            filename = decodeURIComponent(encodedFilename);
-        } catch {
-            filename = encodedFilename;
-        }
-    } else if (plainFilename) {
-        filename = plainFilename;
-    }
-
-    const blob = await response.blob();
-    signal?.throwIfAborted();
-    if (authApi.getToken() !== token) throw new DOMException("Session changed", "AbortError");
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    try {
-        link.href = objectUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-    } finally {
-        link.remove();
-        URL.revokeObjectURL(objectUrl);
-    }
+    return downloadAuthenticatedFile(
+        `/api/requisitions/${requisitionId}/pdf`,
+        `trebovanje-${requisitionId}.pdf`,
+        "PDF trebovanja nije preuzet.",
+        signal,
+    );
 }
 
 function toRequisition(requisition: ApiRequisition): RequisitionListItem {
@@ -139,6 +147,34 @@ function toRequisition(requisition: ApiRequisition): RequisitionListItem {
                 (status) => status.toLowerCase() as RequisitionListItem["status"],
             ),
         },
+    };
+}
+
+function toRequisitionSummary(requisition: ApiRequisitionSummary): RequisitionListItem {
+    return {
+        id: requisition.id,
+        revision: "",
+        salesRep: {
+            id: requisition.salesRepId,
+            firstName: requisition.salesRepFirstName,
+            lastName: requisition.salesRepLastName,
+            email: requisition.salesRepEmail,
+        },
+        buyerId: requisition.buyerId,
+        buyerName: requisition.buyerObjectName,
+        companyName: requisition.buyerCompanyName,
+        buyerEmail: requisition.buyerEmail,
+        type: requisition.type === "GRATIS" ? "gratis" : "classic",
+        itemCount: 0,
+        totalQuantity: 0,
+        items: [],
+        gratisReason: null,
+        customReason: null,
+        note: null,
+        createdAt: requisition.createdAt,
+        status: requisition.status.toLowerCase() as RequisitionListItem["status"],
+        statusNote: null,
+        actions: { canEdit: false, allowedStatusTransitions: [] },
     };
 }
 
@@ -173,22 +209,57 @@ export const requisitionApi = {
             body: JSON.stringify({ recipient }),
         });
     },
-    async getMonthlyRequisition(
+    async getMonthlyRequisitionPage(
+        year: number,
+        month: number,
+        page: number,
+        search: string,
+        status: RequisitionListItem["status"] | "ALL",
+        signal?: AbortSignal,
+    ): Promise<MonthlyRequisitionPage> {
+        const params = new URLSearchParams({
+            year: String(year),
+            month: String(month),
+            page: String(page - 1),
+        });
+        const normalizedSearch = search.trim();
+        if (normalizedSearch) params.set("search", normalizedSearch);
+        if (status !== "ALL") params.set("status", status.toUpperCase());
+        const result = await apiRequest<ApiRequisitionPage>(
+            `/api/requisitions/page?${params.toString()}`,
+            { signal },
+        );
+        return {
+            ...result,
+            pageNumber: result.pageNumber + 1,
+            requisitions: result.content.map(toRequisitionSummary),
+        };
+    },
+    getDashboardMonthlyStatistics(
         year: number,
         month: number,
         signal?: AbortSignal,
-    ): Promise<MonthlyRequisition> {
-        const result = await apiRequest<ApiMonthlyRequisition>(
-            `/api/requisitions?year=${year}&month=${month}`,
+    ): Promise<DashboardMonthlyStatistics> {
+        return apiRequest<DashboardMonthlyStatistics>(
+            `/api/requisitions/dashboard-statistics?year=${year}&month=${month}`,
             { signal },
         );
-        return { ...result, requisitions: result.requisitions.map(toRequisition) };
     },
-    async getMonthlyCustomerRequisitions(customerId: number, year: number, month: number, signal?: AbortSignal): Promise<MonthlyRequisition> {
-        const result = await apiRequest<ApiMonthlyRequisition>(
-            `/api/requisitions/customer/${customerId}?year=${year}&month=${month}`,
+    async getMonthlyCustomerRequisitionPage(
+        customerId: number,
+        year: number,
+        month: number,
+        page: number,
+        signal?: AbortSignal,
+    ): Promise<RequisitionSummaryPage> {
+        const result = await apiRequest<ApiRequisitionSummaryPage>(
+            `/api/requisitions/customer/${customerId}/page?year=${year}&month=${month}&page=${page - 1}`,
             { signal },
         );
-        return { ...result, requisitions: result.requisitions.map(toRequisition) };
+        return {
+            ...result,
+            pageNumber: result.pageNumber + 1,
+            requisitions: result.content.map(toRequisitionSummary),
+        };
     },
 };

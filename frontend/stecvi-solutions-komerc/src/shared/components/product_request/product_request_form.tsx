@@ -24,6 +24,8 @@ type ProductRequestFormProps<T extends RequestCatalogItem> = {
     validateBeforeConfirmation?: () => boolean;
     initialQuantities?: Readonly<Record<string, number>>;
     initialNote?: string;
+    quantitySteppers?: boolean;
+    visibleProductKeys?: ReadonlySet<string>;
     onCancel: () => void;
     onConfirm: (data: { products: SelectedProduct<T>[]; note: string | null }) => Promise<void>;
 };
@@ -50,6 +52,8 @@ export function ProductRequestForm<T extends RequestCatalogItem>({
     validateBeforeConfirmation,
     initialQuantities = {},
     initialNote = "",
+    quantitySteppers = false,
+    visibleProductKeys,
     onCancel,
     onConfirm,
 }: ProductRequestFormProps<T>) {
@@ -147,6 +151,8 @@ export function ProductRequestForm<T extends RequestCatalogItem>({
                     touchedQuantities={touchedQuantities}
                     submitted={submitted}
                     hasSelectedProduct={hasSelectedProduct}
+                    quantitySteppers={quantitySteppers}
+                    visibleProductKeys={visibleProductKeys}
                     onQuantityChange={updateQuantity}
                     onQuantityBlur={(index) => setTouchedQuantities((current) => current.map((value, itemIndex) => (
                         itemIndex === index ? true : value

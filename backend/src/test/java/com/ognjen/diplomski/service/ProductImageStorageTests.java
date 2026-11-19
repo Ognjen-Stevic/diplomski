@@ -1,5 +1,6 @@
 package com.ognjen.diplomski.service;
 
+import com.ognjen.diplomski.storage.ProductImageStorage;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;

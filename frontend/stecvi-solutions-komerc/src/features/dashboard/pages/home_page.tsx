@@ -1,4 +1,4 @@
-import { RiskOverview } from "../../ai/risk_components";
+import { RiskOverview } from "../../../shared/components/ai/risk_overview";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -7,7 +7,7 @@ import { APP_ROUTES } from "../../../app/routes";
 import { PERMISSIONS } from "../../../roles/permissions";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { DashboardAlerts } from "../components/alerts/dashboard_alerts";
-import { CustomerSearch } from "../../customer/components/customer_search";
+import { CustomerSearch } from "../../../shared/components/customer_search";
 import { QuickActionCard } from "../components/quick_action_section/quick_action_card";
 import { MonthlyStatsSection } from "../components/stats/monthly_stats_section";
 import { useVisibleQuickActions } from "../hooks/use_visible_quick_actions";

@@ -1,8 +1,17 @@
 import { apiRequest } from "../../app/api/http_client";
-import type { ManagedProduct, ProductCreatePayload } from "./types/product_management.types";
+import type { ManagedProduct, ProductCreatePayload, ProductPage, ProductStatusFilter } from "./types/product_management.types";
 
 export const productManagementApi = {
-    findAll: (signal?: AbortSignal) => apiRequest<ManagedProduct[]>("/api/products", { signal }),
+    findAll: (
+        page: number,
+        search: string,
+        status: ProductStatusFilter,
+        signal?: AbortSignal,
+    ) => {
+        const parameters = new URLSearchParams({ page: String(page), status });
+        if (search.trim()) parameters.set("search", search.trim());
+        return apiRequest<ProductPage>(`/api/products?${parameters}`, { signal });
+    },
     create: (payload: ProductCreatePayload, image: File | null) => {
         const formData = new FormData();
         formData.append("product", new Blob([JSON.stringify(payload)], { type: "application/json" }));

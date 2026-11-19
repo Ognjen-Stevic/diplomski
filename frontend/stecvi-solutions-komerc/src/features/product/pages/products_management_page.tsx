@@ -1,6 +1,6 @@
 import { useSessionCurrent } from "../../../shared/hooks/use_session_request";
 import { SessionScope } from "../../../shared/components/session_scope";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PackageSearch, Plus, Search } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { APP_ROUTES } from "../../../app/routes";
@@ -10,14 +10,16 @@ import { useAuth } from "../../auth/hooks/useAuth";
 import { ProductDeactivationConfirmation } from "../components/product_deactivation_confirmation";
 import { ProductForm } from "../components/product_form";
 import { ProductManagementCard } from "../components/product_management_card";
+import { Pagination } from "../../../shared/components/pagination";
 import { productManagementApi } from "../product_management_api";
-import type { ManagedProduct, ProductCreatePayload } from "../types/product_management.types";
+import type { ManagedProduct, ProductCreatePayload, ProductStatusFilter } from "../types/product_management.types";
 
 export default function ProductsManagementPage() { return <SessionScope><ProductsManagementPageContent /></SessionScope>; }
 function ProductsManagementPageContent() {
     const { user } = useAuth();
     const isCurrent = useSessionCurrent();
     const [searchParams, setSearchParams] = useSearchParams();
+    const pageNumber = Math.max(1, Number(searchParams.get("page")) || 1);
     const [formError, setFormError] = useState("");
     const formOpen = searchParams.get("action") === "new";
     const savingRef = useRef(false);
@@ -27,21 +29,28 @@ function ProductsManagementPageContent() {
     const [confirmation, setConfirmation] = useState<ManagedProduct | null>(null);
     const [deactivating, setDeactivating] = useState(false);
     const [search, setSearch] = useState("");
-    const [status, setStatus] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+    const [status, setStatus] = useState<ProductStatusFilter>("ALL");
     const readOnly = user?.role === "BOOKKEEPER";
     const canViewProducts = user?.role === "CEO" || readOnly;
 
-    const { products, setProducts, loading, error: pageError, retry } = useProductCatalog(canViewProducts);
+    const { page, products, loading, error: pageError, retry } = useProductCatalog(
+        pageNumber - 1,
+        search,
+        status,
+        canViewProducts,
+    );
 
-    const filtered = useMemo(() => {
-        const term = search.trim().toLocaleLowerCase("sr-Latn-RS");
-        return products.filter((product) => {
-            const matchesSearch = !term
-                || `${product.name} ${product.code}`.toLocaleLowerCase("sr-Latn-RS").includes(term);
-            const matchesStatus = status === "ALL" || product.active === (status === "ACTIVE");
-            return matchesSearch && matchesStatus;
-        });
-    }, [products, search, status]);
+    useEffect(() => {
+        if (!page || loading) return;
+        const lastPage = Math.max(1, page.totalPages);
+        if (pageNumber <= lastPage) return;
+        setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            if (lastPage === 1) next.delete("page");
+            else next.set("page", String(lastPage));
+            return next;
+        }, { replace: true });
+    }, [loading, page, pageNumber, setSearchParams]);
 
     if (!user) return <Navigate to={APP_ROUTES.login} replace />;
     if (!canViewProducts) return <Navigate to={APP_ROUTES.home} replace />;
@@ -61,11 +70,10 @@ function ProductsManagementPageContent() {
         setSaving(true);
         setFormError("");
         try {
-            const created = await productManagementApi.create(payload, image);
+            await productManagementApi.create(payload, image);
             if (!isCurrent()) return;
-            setProducts((current) => [...current, created]
-                .sort((a, b) => a.name.localeCompare(b.name, "sr-Latn-RS")));
             setFormOpen(false);
+            retry();
         } catch (error) {
             setFormError(error instanceof Error ? error.message : "Artikal nije sačuvan.");
         } finally {
@@ -80,12 +88,10 @@ function ProductsManagementPageContent() {
         setDeactivating(true);
         setDeactivationError("");
         try {
-            const updated = await productManagementApi.deactivate(confirmation.id);
+            await productManagementApi.deactivate(confirmation.id);
             if (!isCurrent()) return;
-            setProducts((current) => current.map((product) => (
-                product.id === updated.id ? updated : product
-            )));
             setConfirmation(null);
+            retry();
         } catch (error) {
             setDeactivationError(error instanceof Error ? error.message : "Artikal nije deaktiviran.");
         } finally {
@@ -127,7 +133,14 @@ function ProductsManagementPageContent() {
                         <input
                             type="search"
                             value={search}
-                            onChange={(event) => setSearch(event.target.value)}
+                            onChange={(event) => {
+                                setSearch(event.target.value);
+                                setSearchParams((current) => {
+                                    const next = new URLSearchParams(current);
+                                    next.delete("page");
+                                    return next;
+                                }, { replace: true });
+                            }}
                             placeholder="Naziv ili šifra"
                             className="w-full rounded-xl border border-dust-grey py-2.5 pl-10 pr-3 outline-none focus:border-stormy-teal"
                         />
@@ -135,7 +148,14 @@ function ProductsManagementPageContent() {
                     <select
                         aria-label="Filtriraj po statusu"
                         value={status}
-                        onChange={(event) => setStatus(event.target.value as typeof status)}
+                        onChange={(event) => {
+                            setStatus(event.target.value as ProductStatusFilter);
+                            setSearchParams((current) => {
+                                const next = new URLSearchParams(current);
+                                next.delete("page");
+                                return next;
+                            }, { replace: true });
+                        }}
                         className="rounded-xl border border-dust-grey px-3 py-2.5 outline-none focus:border-stormy-teal"
                     >
                         <option value="ALL">Svi statusi</option>
@@ -155,27 +175,39 @@ function ProductsManagementPageContent() {
 
                 {loading ? (
                     <p className="mt-10 text-center text-graphite/60">Učitavanje artikala...</p>
-                ) : filtered.length === 0 ? (
+                ) : products.length === 0 ? (
                     <div className="mt-10 flex flex-col items-center text-center text-graphite/55">
                         <PackageSearch className="h-10 w-10" />
                         <p className="mt-3 font-semibold">Nema pronađenih artikala.</p>
                     </div>
                 ) : (
-                    <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                        {filtered.map((product) => (
-                            <ProductManagementCard
-                                key={product.id}
-                                product={product}
-                                deactivating={deactivating && confirmation?.id === product.id}
-                                onDeactivate={() => {
-                                    if (deactivatingRef.current) return;
-                                    setDeactivationError("");
-                                    setConfirmation(product);
-                                }}
-                                readOnly={readOnly}
-                            />
-                        ))}
-                    </div>
+                    <>
+                        <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                            {products.map((product) => (
+                                <ProductManagementCard
+                                    key={product.id}
+                                    product={product}
+                                    deactivating={deactivating && confirmation?.id === product.id}
+                                    onDeactivate={() => {
+                                        if (deactivatingRef.current) return;
+                                        setDeactivationError("");
+                                        setConfirmation(product);
+                                    }}
+                                    readOnly={readOnly}
+                                />
+                            ))}
+                        </div>
+                        <Pagination
+                            currentPage={pageNumber}
+                            totalPages={page?.totalPages ?? 0}
+                            onChange={(nextPage) => {
+                                const next = new URLSearchParams(searchParams);
+                                if (nextPage === 1) next.delete("page");
+                                else next.set("page", String(nextPage));
+                                setSearchParams(next);
+                            }}
+                        />
+                    </>
                 )}
             </main>
 

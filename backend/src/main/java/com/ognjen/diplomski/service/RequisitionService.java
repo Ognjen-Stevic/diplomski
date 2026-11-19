@@ -1,9 +1,11 @@
 package com.ognjen.diplomski.service;
 
-import com.ognjen.diplomski.dto.MonthlyRequisitionResponse;
+import com.ognjen.diplomski.dto.DashboardMonthlyStatisticsResponse;
 import com.ognjen.diplomski.dto.RequisitionEmailRecipient;
 import com.ognjen.diplomski.dto.RequisitionRequest;
 import com.ognjen.diplomski.dto.RequisitionResponse;
+import com.ognjen.diplomski.dto.RequisitionPageResponse;
+import com.ognjen.diplomski.dto.RequisitionSummaryPageResponse;
 import com.ognjen.diplomski.dto.RequisitionStatusUpdateRequest;
 import com.ognjen.diplomski.security.AppUserPrincipal;
 
@@ -29,12 +31,27 @@ public interface RequisitionService {
             RequisitionStatusUpdateRequest request
     );
 
-    MonthlyRequisitionResponse getMonthlyRequisition(AppUserPrincipal principal, int year, int month);
-
-    MonthlyRequisitionResponse getMonthlyCustomerRequisitions(
+    DashboardMonthlyStatisticsResponse getDashboardMonthlyStatistics(
             AppUserPrincipal principal,
-            Long customerId,
             int year,
             int month
     );
+
+    RequisitionPageResponse getMonthlyRequisitionPage(
+            AppUserPrincipal principal,
+            int year,
+            int month,
+            int page,
+            String search,
+            com.ognjen.diplomski.entity.enums.RequisitionStatus status
+    );
+
+    RequisitionSummaryPageResponse getMonthlyCustomerRequisitionPage(
+            AppUserPrincipal principal,
+            Long customerId,
+            int year,
+            int month,
+            int page
+    );
+
 }

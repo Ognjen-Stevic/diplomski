@@ -1,0 +1,48 @@
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+  <springProperty scope="context" name="AI_LOG_PATH" source="app.ai.audit.path" defaultValue="logs/ai"/>
+
+  <appender name="AI_DECISIONS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${AI_LOG_PATH}/ai-decisions.jsonl</file>
+    <encoder><pattern>%msg%n</pattern><charset>UTF-8</charset></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${AI_LOG_PATH}/archive/ai-decisions.%d{yyyy-MM-dd}.%i.jsonl.gz</fileNamePattern>
+      <maxFileSize>20MB</maxFileSize><maxHistory>365</maxHistory><totalSizeCap>2GB</totalSizeCap>
+    </rollingPolicy>
+  </appender>
+
+  <appender name="AI_TRAINING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${AI_LOG_PATH}/ai-training.jsonl</file>
+    <encoder><pattern>%msg%n</pattern><charset>UTF-8</charset></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${AI_LOG_PATH}/archive/ai-training.%d{yyyy-MM-dd}.%i.jsonl.gz</fileNamePattern>
+      <maxFileSize>20MB</maxFileSize><maxHistory>730</maxHistory><totalSizeCap>1GB</totalSizeCap>
+    </rollingPolicy>
+  </appender>
+
+  <appender name="AI_LIFECYCLE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${AI_LOG_PATH}/ai-lifecycle.jsonl</file>
+    <encoder><pattern>%msg%n</pattern><charset>UTF-8</charset></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${AI_LOG_PATH}/archive/ai-lifecycle.%d{yyyy-MM-dd}.%i.jsonl.gz</fileNamePattern>
+      <maxFileSize>20MB</maxFileSize><maxHistory>180</maxHistory><totalSizeCap>1GB</totalSizeCap>
+    </rollingPolicy>
+  </appender>
+
+  <appender name="AI_ERRORS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${AI_LOG_PATH}/ai-errors.jsonl</file>
+    <encoder><pattern>%msg%n</pattern><charset>UTF-8</charset></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${AI_LOG_PATH}/archive/ai-errors.%d{yyyy-MM-dd}.%i.jsonl.gz</fileNamePattern>
+      <maxFileSize>20MB</maxFileSize><maxHistory>365</maxHistory><totalSizeCap>1GB</totalSizeCap>
+    </rollingPolicy>
+  </appender>
+
+  <logger name="AI_DECISIONS" level="INFO" additivity="false"><appender-ref ref="AI_DECISIONS_FILE"/></logger>
+  <logger name="AI_TRAINING" level="INFO" additivity="false"><appender-ref ref="AI_TRAINING_FILE"/></logger>
+  <logger name="AI_LIFECYCLE" level="INFO" additivity="false"><appender-ref ref="AI_LIFECYCLE_FILE"/></logger>
+  <logger name="AI_ERRORS" level="INFO" additivity="false"><appender-ref ref="AI_ERRORS_FILE"/></logger>
+
+  <root level="INFO"><appender-ref ref="CONSOLE"/></root>
+</configuration>

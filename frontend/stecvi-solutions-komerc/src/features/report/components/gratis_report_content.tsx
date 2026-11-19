@@ -1,6 +1,6 @@
 import type { GratisReportData } from "../types/sales_report.types";
 import { formatLiters } from "../utils/sales_report.utils";
-import { ReportChart } from "./report_chart";
+import { ReportChart } from "../../../shared/components/report/report_chart";
 import { ReportSummaryCards } from "./report_summary_cards";
 import { ReportTable } from "./report_table";
 

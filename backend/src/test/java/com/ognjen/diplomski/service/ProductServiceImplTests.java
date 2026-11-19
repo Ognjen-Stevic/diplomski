@@ -1,17 +1,21 @@
 package com.ognjen.diplomski.service;
 
 import com.ognjen.diplomski.dto.ProductCreateRequest;
+import com.ognjen.diplomski.dto.ProductStatusFilter;
 import com.ognjen.diplomski.entity.Product;
 import com.ognjen.diplomski.entity.enums.PackageType;
 import com.ognjen.diplomski.repository.ProductRepository;
 import com.ognjen.diplomski.security.AppUserPrincipal;
 import com.ognjen.diplomski.service.impl.ProductServiceImpl;
-import com.ognjen.diplomski.service.ProductImageStorage;
+import com.ognjen.diplomski.storage.ProductImageStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -22,6 +26,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class ProductServiceImplTests {
+
+    private static final PageRequest PAGE = PageRequest.of(
+            0, 15, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
 
     private ProductRepository repository;
     private ProductServiceImpl service;
@@ -84,7 +91,8 @@ class ProductServiceImplTests {
     void nonCeoCannotManageProducts() {
         AppUserPrincipal manager = principal(7L, "ROLE_MANAGER");
         assertEquals(403, assertThrows(ResponseStatusException.class,
-                () -> service.getProducts(manager)).getStatusCode().value());
+                () -> service.getProducts(manager, "", ProductStatusFilter.ALL, PAGE))
+                .getStatusCode().value());
         assertEquals(403, assertThrows(ResponseStatusException.class,
                 () -> service.createProduct(manager, request("ART-1", "1.000"), null)).getStatusCode().value());
         assertEquals(403, assertThrows(ResponseStatusException.class,
@@ -96,25 +104,45 @@ class ProductServiceImplTests {
     void bookkeeperCanReadProductsButCannotModifyThem() {
         AppUserPrincipal bookkeeper = principal(8L, "ROLE_BOOKKEEPER");
         Product product = product(true);
-        when(repository.findAllByOrderByNameAsc()).thenReturn(List.of(product));
+        when(repository.searchManagement("", false, null, PAGE))
+                .thenReturn(new PageImpl<>(List.of(product), PAGE, 1));
 
-        var products = service.getProducts(bookkeeper);
+        var products = service.getProducts(bookkeeper, "", ProductStatusFilter.ALL, PAGE);
 
-        assertEquals(1, products.size());
-        assertEquals("Artikal", products.getFirst().name());
-        assertEquals("ART-1", products.getFirst().code());
-        assertEquals(new BigDecimal("100.00"), products.getFirst().price());
-        assertEquals(BigDecimal.ONE, products.getFirst().volumeLiters());
-        assertEquals(BigDecimal.ZERO, products.getFirst().stimulationPerUnit());
-        assertEquals(BigDecimal.ZERO, products.getFirst().managerStimulationPerUnit());
+        assertEquals(1, products.content().size());
+        assertEquals(1, products.totalElements());
+        assertEquals(1, products.totalPages());
+        assertEquals(0, products.pageNumber());
+        assertEquals("Artikal", products.content().getFirst().name());
+        assertEquals("ART-1", products.content().getFirst().code());
+        assertEquals(new BigDecimal("100.00"), products.content().getFirst().price());
+        assertEquals(BigDecimal.ONE, products.content().getFirst().volumeLiters());
+        assertEquals(BigDecimal.ZERO, products.content().getFirst().stimulationPerUnit());
+        assertEquals(BigDecimal.ZERO, products.content().getFirst().managerStimulationPerUnit());
         assertEquals(403, assertThrows(ResponseStatusException.class,
                 () -> service.createProduct(bookkeeper, request("ART-2", "1.000"), null))
                 .getStatusCode().value());
         assertEquals(403, assertThrows(ResponseStatusException.class,
                 () -> service.deactivateProduct(bookkeeper, 10L))
                 .getStatusCode().value());
-        verify(repository).findAllByOrderByNameAsc();
+        verify(repository).searchManagement("", false, null, PAGE);
         verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void searchAndInactiveFilterAreAppliedByRepositoryBeforePagination() {
+        var secondPage = PageRequest.of(
+                1, 15, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+        when(repository.searchManagement("rakija", true, false, secondPage))
+                .thenReturn(new PageImpl<>(List.of(), secondPage, 18));
+
+        var result = service.getProducts(
+                ceo(), "  RAKIJA  ", ProductStatusFilter.INACTIVE, secondPage);
+
+        assertEquals(18, result.totalElements());
+        assertEquals(2, result.totalPages());
+        assertEquals(1, result.pageNumber());
+        verify(repository).searchManagement("rakija", true, false, secondPage);
     }
 
     private static ProductCreateRequest request(String code, String volume) {

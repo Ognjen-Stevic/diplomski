@@ -3,6 +3,7 @@ package com.ognjen.diplomski.contorller;
 import com.ognjen.diplomski.auth.ApiErrorWriter;
 import com.ognjen.diplomski.auth.ApiExceptionHandler;
 import com.ognjen.diplomski.config.SpringSecurityConfig;
+import com.ognjen.diplomski.domain.report.ReportSubjectResolver;
 import com.ognjen.diplomski.dto.*;
 import com.ognjen.diplomski.entity.*;
 import com.ognjen.diplomski.entity.enums.RequisitionStatus;
@@ -49,9 +50,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = {AuthController.class, CustomerController.class, EmployeeController.class,
         ProductController.class, RequisitionController.class, SalesReportController.class,
         AdvertisingMaterialController.class, GoodsRequestController.class, AlertController.class})
-@Import({SpringSecurityConfig.class, JwtAuthenticationFilter.class, JwtService.class,
+@Import({SpringSecurityConfig.class, JwtAuthenticationFilter.class, JwtService.class, LoginRateLimiter.class,
         ApiErrorWriter.class, ApiExceptionHandler.class, SalesReportServiceImpl.class,
-        SalesReportExcelServiceImpl.class, ReportSubjectResolver.class, RequisitionServiceImpl.class})
+        SalesReportExcelServiceImpl.class, ReportSubjectResolver.class, RequisitionServiceImpl.class,
+        RequisitionItemSynchronizer.class})
 @TestPropertySource(properties = {"security.jwt.secret=http-security-tests-only-secret-at-least-32-bytes",
         "logging.level.root=WARN", "logging.level.org.springframework.web=WARN", "debug=false",
         "logging.level.com.ognjen.diplomski.auth.ApiExceptionHandler=OFF"})
@@ -139,7 +141,7 @@ class ApiHttpSecurityTests {
         Permission read = new Permission(); read.setName(Permissions.CUSTOMERS_READ);
         user.getRole().getPermissions().add(read);
         mvc.perform(get("/api/customers").header("Authorization", "Bearer " + signed)).andExpect(status().isOk());
-        verify(customerService).findAll(any(), isNull(), eq(0), eq(50));
+        verify(customerService).findAll(any(), isNull(), eq(0), eq(24));
     }
 
     @Test void customerPaginationStillClamps() throws Exception {
@@ -334,7 +336,8 @@ class ApiHttpSecurityTests {
         AppUser ceo = actor("CEO", Permissions.SALES_REPORTS_READ);
         as(ceo, get("/api/sales-reports/monthly?year=2026&month=6"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.salesRep").isEmpty());
-        verify(sales).findAllForReport(eq(RequisitionType.NORMAL), any(), any());
+        verify(sales).findProductAggregates(
+                isNull(), isNull(), eq(RequisitionType.NORMAL), any(), any());
         when(users.findByIdAndRoleNameIgnoreCase(8L, "MANAGER")).thenReturn(Optional.of(actor("MANAGER")));
         as(ceo, get("/api/sales-reports/monthly?year=2026&month=6&managerId=8"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.salesRep").isEmpty());

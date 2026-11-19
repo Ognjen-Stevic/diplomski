@@ -1,0 +1,4088 @@
+{
+  "info": {
+    "_postman_id": "f8ca943d-8450-4f93-b02c-e80a0c860527",
+    "name": "Diplomski API",
+    "description": "Complete Spring Boot API reference generated from the current controllers, DTO validation, security configuration, and service rules. Requests prefixed [SIDE EFFECT] can modify data or contact external systems and must be run manually against a safe local database.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Authentication Setup",
+      "description": "Helper copies of POST /api/auth/login. These are not part of the one-request-per-endpoint API reference inventory.",
+      "item": [
+        {
+          "name": "Login as CEO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{ceoEmail}}\",\n  \"password\": \"{{ceoPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Authentication helper for CEO. Enter safe local credentials in the environment. A successful response stores accessToken in ceoToken and also updates accessToken. Login is rate limited and may return 429."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('JWT response structure is valid', () => { pm.expect(body.accessToken).to.be.a('string').and.not.empty; pm.expect(body.tokenType).to.equal('Bearer'); pm.expect(body.expiresIn).to.be.a('number'); pm.expect(body.user).to.be.an('object'); });",
+                  "if (pm.response.code === 200) { pm.environment.set('ceoToken', body.accessToken); pm.environment.set('accessToken', body.accessToken); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as MANAGER",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{managerEmail}}\",\n  \"password\": \"{{managerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Authentication helper for MANAGER. Enter safe local credentials in the environment. A successful response stores accessToken in managerToken and also updates accessToken. Login is rate limited and may return 429."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('JWT response structure is valid', () => { pm.expect(body.accessToken).to.be.a('string').and.not.empty; pm.expect(body.tokenType).to.equal('Bearer'); pm.expect(body.expiresIn).to.be.a('number'); pm.expect(body.user).to.be.an('object'); });",
+                  "if (pm.response.code === 200) { pm.environment.set('managerToken', body.accessToken); pm.environment.set('accessToken', body.accessToken); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as SALES_REP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{salesRepEmail}}\",\n  \"password\": \"{{salesRepPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Authentication helper for SALES_REP. Enter safe local credentials in the environment. A successful response stores accessToken in salesRepToken and also updates accessToken. Login is rate limited and may return 429."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('JWT response structure is valid', () => { pm.expect(body.accessToken).to.be.a('string').and.not.empty; pm.expect(body.tokenType).to.equal('Bearer'); pm.expect(body.expiresIn).to.be.a('number'); pm.expect(body.user).to.be.an('object'); });",
+                  "if (pm.response.code === 200) { pm.environment.set('salesRepToken', body.accessToken); pm.environment.set('accessToken', body.accessToken); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as BOOKKEEPER",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{bookkeeperEmail}}\",\n  \"password\": \"{{bookkeeperPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Authentication helper for BOOKKEEPER. Enter safe local credentials in the environment. A successful response stores accessToken in bookkeeperToken and also updates accessToken. Login is rate limited and may return 429."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('JWT response structure is valid', () => { pm.expect(body.accessToken).to.be.a('string').and.not.empty; pm.expect(body.tokenType).to.equal('Bearer'); pm.expect(body.expiresIn).to.be.a('number'); pm.expect(body.user).to.be.an('object'); });",
+                  "if (pm.response.code === 200) { pm.environment.set('bookkeeperToken', body.accessToken); pm.environment.set('accessToken', body.accessToken); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 API Reference",
+      "description": "Every active production endpoint appears exactly once in these module folders.",
+      "item": [
+        {
+          "name": "Health",
+          "item": [
+            {
+              "name": "Health",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "text/plain",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "noauth"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/health",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ],
+                  "query": []
+                },
+                "description": "Public health endpoint. Returns plain text: 100% health."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Health body matches', () => pm.expect(pm.response.text()).to.equal('100% health'));"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "200 OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "text/plain"
+                      }
+                    ],
+                    "url": "{{baseUrl}}/api/health"
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "text",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "text/plain;charset=UTF-8"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "100% health"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Authentication",
+          "item": [
+            {
+              "name": "Login",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"{{loginPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "login"
+                  ],
+                  "query": []
+                },
+                "description": "Public login. email and password are required and non-blank. Returns accessToken, tokenType=Bearer, expiresIn, and user. Invalid credentials return 401; excessive attempts return 429. No refresh-token endpoint exists."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('JWT response structure is valid', () => { pm.expect(body.accessToken).to.be.a('string').and.not.empty; pm.expect(body.tokenType).to.equal('Bearer'); pm.expect(body.expiresIn).to.be.a('number'); pm.expect(body.user).to.be.an('object'); });",
+                      "if (pm.response.code === 200) { pm.environment.set('accessToken', body.accessToken); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Current authenticated user",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "me"
+                  ],
+                  "query": []
+                },
+                "description": "Any authenticated user. Returns id, email, names, ROLE_* role, and permissions."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AI Risk Analytics",
+          "item": [
+            {
+              "name": "Risk-filtered customer catalog",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/customers/catalog?risk=HIGH&page={{page}}&size={{size}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "customers",
+                    "catalog"
+                  ],
+                  "query": [
+                    {
+                      "key": "risk",
+                      "value": "HIGH",
+                      "description": "Required: LOW, MEDIUM, HIGH, INSUFFICIENT_DATA",
+                      "disabled": false
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "Optional customer search",
+                      "disabled": true
+                    },
+                    {
+                      "key": "page",
+                      "value": "{{page}}",
+                      "description": "Zero-based; default 0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}",
+                      "description": "1-100; default 24",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Roles CEO, MANAGER, SALES_REP with customers.read. Database-paginated customer catalog filtered by AI risk and role visibility."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Pagination metadata is present', () => { pm.expect(body.content).to.be.an('array'); pm.expect(body.totalElements).to.be.a('number'); pm.expect(body.totalPages).to.be.a('number'); });",
+                      "pm.test('Requested size is respected', () => pm.expect(pm.response.json().size).to.be.at.most(Number(pm.variables.get('size'))));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Batch customer risks",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "[\n  {{customerId}}\n]",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/customers/risks/batch",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "customers",
+                    "risks",
+                    "batch"
+                  ],
+                  "query": []
+                },
+                "description": "Roles CEO, MANAGER, SALES_REP with customers.read. Body is an array of 0-100 positive customer IDs. Results are visibility-scoped."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Paged customer risk list",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/customers/risks?page={{page}}&size=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "customers",
+                    "risks"
+                  ],
+                  "query": [
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional; SALES_REP may select only self",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; CEO only",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "Optional",
+                      "disabled": true
+                    },
+                    {
+                      "key": "risk",
+                      "value": "HIGH",
+                      "description": "Optional risk level",
+                      "disabled": true
+                    },
+                    {
+                      "key": "page",
+                      "value": "{{page}}",
+                      "description": "Zero-based; default 0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "size",
+                      "value": "20",
+                      "description": "1-100; default 20",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Roles CEO, MANAGER, SALES_REP with customers.read. Returns RiskPage {content,total,page,size}. Scope filters apply before pagination."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "const b=pm.response.json(); pm.test('Risk page structure',()=>{pm.expect(b.content).to.be.an('array');pm.expect(b.total).to.be.a('number');pm.expect(b.size).to.be.within(1,100);});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Risk summary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/summary",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "summary"
+                  ],
+                  "query": [
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; CEO only",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Roles CEO, MANAGER, SALES_REP with customers.read. Returns scoped risk distribution and summary metrics."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Customer risk detail",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/customers/{{customerId}}/risk",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "customers",
+                    "{{customerId}}",
+                    "risk"
+                  ],
+                  "query": []
+                },
+                "description": "Returns the latest accessible assessment. 404 when missing or outside the caller's scope."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Customer AI activities",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/customers/{{customerId}}/activities",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "customers",
+                    "{{customerId}}",
+                    "activities"
+                  ],
+                  "query": []
+                },
+                "description": "Returns up to 100 recent activities after verifying access to the customer."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Record customer AI activity",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"CONTACT\",\n  \"notes\": \"Postman local test activity\",\n  \"outcome\": \"Customer contacted successfully\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/customers/{{customerId}}/activities",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ai",
+                    "customers",
+                    "{{customerId}}",
+                    "activities"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP only and only for an owned customer with an assessment. type must be CONTACT, INVESTIGATE, or MONITOR; notes max 2000; outcome required, max 1000. Inserts an activity."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Customers",
+          "item": [
+            {
+              "name": "Paged customers",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/customers?page={{page}}&size={{size}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "customers"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "Optional",
+                      "disabled": true
+                    },
+                    {
+                      "key": "page",
+                      "value": "{{page}}",
+                      "description": "Negative values are normalized to 0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "size",
+                      "value": "{{size}}",
+                      "description": "Normalized to 1-100; default 24",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Requires customers.read. Role scope and visible statuses are applied before database pagination."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Pagination metadata is present', () => { pm.expect(body.content).to.be.an('array'); pm.expect(body.totalElements).to.be.a('number'); pm.expect(body.totalPages).to.be.a('number'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Customer by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/customers/{{customerId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "customers",
+                    "{{customerId}}"
+                  ],
+                  "query": []
+                },
+                "description": "Requires customers.read and role-based access. Returns 404 when absent or inaccessible."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Team sales representatives",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/customers/team-sales-representatives",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "customers",
+                    "team-sales-representatives"
+                  ],
+                  "query": []
+                },
+                "description": "Requires customers.read. Returns the caller's permitted sales-representative options."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Create customer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"objectName\": \"Postman Test Shop\",\n  \"companyName\": \"Postman Disposable Company\",\n  \"pib\": \"999999991\",\n  \"phone\": \"+381 60 000 0000\",\n  \"email\": \"postman.customer@example.test\",\n  \"address\": \"Test Street 1\",\n  \"googleMapsUrl\": \"\",\n  \"note\": \"Disposable local Postman data\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/customers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "customers"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP only. Required: objectName/companyName/address max 300 and nine-digit pib. Optional phone max 25 and validated format, email max 254, Google Maps URL, note max 2000. Creates a DRAFT customer; use disposable data."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Update customer",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"objectName\": \"Updated Postman Test Shop\",\n  \"companyName\": \"Postman Disposable Company\",\n  \"pib\": \"999999991\",\n  \"phone\": \"+381 60 000 0000\",\n  \"email\": \"postman.customer@example.test\",\n  \"address\": \"Test Street 2\",\n  \"googleMapsUrl\": \"\",\n  \"note\": \"Updated disposable data\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/customers/{{customerId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "customers",
+                    "{{customerId}}"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP owner only. Same validation as create. Mutates an existing customer."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Change customer status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"APPROVED\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/customers/{{customerId}}/status",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "customers",
+                    "{{customerId}}",
+                    "status"
+                  ],
+                  "query": []
+                },
+                "description": "MANAGER only. status must be DRAFT, APPROVED, DEACTIVATED, or DELETED and must satisfy the customer workflow."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Reassign customer",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"salesRepId\": {{salesRepId}}\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/customers/{{customerId}}/sales-representative",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "customers",
+                    "{{customerId}}",
+                    "sales-representative"
+                  ],
+                  "query": []
+                },
+                "description": "MANAGER only. salesRepId must be a positive team member ID. Changes customer ownership."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Dashboard Alerts",
+          "item": [
+            {
+              "name": "Dashboard alerts",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/alerts",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "alerts"
+                  ],
+                  "query": []
+                },
+                "description": "Any authenticated user. Counters vary by role."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Employees",
+          "item": [
+            {
+              "name": "Employees",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/employees",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "employees"
+                  ],
+                  "query": []
+                },
+                "description": "Requires employees.read at the security layer; service permits CEO only. Returns managed employee records."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Active manager options",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/employees/manager-options",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "employees",
+                    "manager-options"
+                  ],
+                  "query": []
+                },
+                "description": "Requires employees.read; service permits CEO only."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Create employee",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Representative\",\n  \"email\": \"postman.employee@example.test\",\n  \"password\": \"ChangeMe123!\",\n  \"phone\": \"+381600000001\",\n  \"role\": \"SALES_REP\",\n  \"managerId\": {{managerId}}\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/employees",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "employees"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. Required non-blank firstName, lastName, email, password, role. Roles: SALES_REP, MANAGER, BOOKKEEPER. SALES_REP requires an active managerId. Password minimum 8 characters and maximum 72 UTF-8 bytes. Uses disposable credentials."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Update employee",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Postman\",\n  \"email\": \"postman.employee@example.test\",\n  \"phone\": \"+381600000002\",\n  \"managerId\": {{managerId}}\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/employees/{{employeeId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "employees",
+                    "{{employeeId}}"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. Updates names, email, phone, and manager assignment. role and password must not be supplied with non-null values."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Change employee active state",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"active\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/employees/{{employeeId}}/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "employees",
+                    "{{employeeId}}",
+                    "active"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. Managers with assigned representatives and representatives with assigned customers cannot be deactivated."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Manager team summary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/employees/team-summary",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "employees",
+                    "team-summary"
+                  ],
+                  "query": [
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Required for CEO; forbidden for MANAGER",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "MANAGER sees own team and must omit managerId. CEO must enable managerId. Returns current-month customer/requisition counters."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Managers overview",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/employees/managers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "employees",
+                    "managers"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. Returns current-month summaries for all managers."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Products",
+          "item": [
+            {
+              "name": "Paged product management catalog",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products?status=ALL&page={{page}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "Optional",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "ALL",
+                      "description": "ALL, ACTIVE, or INACTIVE",
+                      "disabled": false
+                    },
+                    {
+                      "key": "page",
+                      "value": "{{page}}",
+                      "description": "Zero-based; fixed server page size 15",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "CEO or BOOKKEEPER. Database-paginated, sorted by name then ID. Page size is fixed at 15."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200',()=>pm.response.to.have.status(200));",
+                      "const b=pm.response.json();pm.test('Product page metadata',()=>{pm.expect(b.content).to.be.an('array');pm.expect(b.totalElements).to.be.a('number');pm.expect(b.totalPages).to.be.a('number');pm.expect(b.pageNumber).to.be.a('number');pm.expect(b.content.length).to.be.at.most(15);});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Available products",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/available",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "available"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP or MANAGER. Returns the complete active product reference list; intentionally unpaginated."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Create product",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "product",
+                      "value": "{\"name\":\"Postman Test Product\",\"code\":\"POSTMAN-TEST-001\",\"price\":1000,\"volumeLiters\":0.7,\"stimulationPerUnit\":10,\"managerStimulationPerUnit\":5}",
+                      "type": "text",
+                      "contentType": "application/json",
+                      "description": "Required JSON ProductCreateRequest"
+                    },
+                    {
+                      "key": "image",
+                      "type": "file",
+                      "src": "",
+                      "description": "Optional image. Select a local permitted image manually before sending."
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. multipart/form-data with required JSON part product and optional image. Numeric values must be positive/non-negative and within service precision limits. Creates a product and may store an uploaded file."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Deactivate product",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{productId}}/deactivate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{productId}}",
+                    "deactivate"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. Permanently marks an active product inactive; an already inactive product returns 409."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Sales Reports",
+          "item": [
+            {
+              "name": "Monthly sales report",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/monthly?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "monthly"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "YTD sales report",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/ytd?year={{year}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "ytd"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Team comparison",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/team-comparison?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "team-comparison"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Managers comparison",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/managers-comparison?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "managers-comparison"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Monthly sales XLSX",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/monthly/export?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "monthly",
+                    "export"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope. Returns an XLSX attachment; use Postman's Save Response to file."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Binary response is non-empty', () => pm.expect(pm.response.responseSize).to.be.above(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "YTD sales XLSX",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/ytd/export?year={{year}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "ytd",
+                    "export"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope. Returns an XLSX attachment; use Postman's Save Response to file."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Binary response is non-empty', () => pm.expect(pm.response.responseSize).to.be.above(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GRATIS YTD report",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/gratis-ytd?year={{year}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "gratis-ytd"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GRATIS monthly report",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/gratis-monthly?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "gratis-monthly"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GRATIS monthly XLSX",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/gratis-monthly/export?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "gratis-monthly",
+                    "export"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope. Returns an XLSX attachment; use Postman's Save Response to file."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Binary response is non-empty', () => pm.expect(pm.response.responseSize).to.be.above(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GRATIS YTD XLSX",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/sales-reports/gratis-ytd/export?year={{year}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sales-reports",
+                    "gratis-ytd",
+                    "export"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "salesRepId",
+                      "value": "{{salesRepId}}",
+                      "description": "Optional scoped subject",
+                      "disabled": true
+                    },
+                    {
+                      "key": "managerId",
+                      "value": "{{managerId}}",
+                      "description": "Optional; primarily CEO scope",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires sales-reports.read. Role and requested subject determine report scope. Returns an XLSX attachment; use Postman's Save Response to file."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Binary response is non-empty', () => pm.expect(pm.response.responseSize).to.be.above(0));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Requisitions",
+          "item": [
+            {
+              "name": "[SIDE EFFECT] Create requisition",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": {{customerId}},\n  \"type\": \"NORMAL\",\n  \"gratisReason\": null,\n  \"customReason\": null,\n  \"note\": \"Disposable Postman requisition\",\n  \"items\": [\n    {\n      \"productCode\": \"{{productCode}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP only. customerId positive, type NORMAL or GRATIS, and at least one unique active product with quantity >= 0.01. GRATIS reason/custom reason rules apply. Creates a requisition."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Requisition by ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/{{requisitionId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "{{requisitionId}}"
+                  ],
+                  "query": []
+                },
+                "description": "Requires requisitions.read and role-based record visibility."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Requisition PDF",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/pdf",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/{{requisitionId}}/pdf",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "{{requisitionId}}",
+                    "pdf"
+                  ],
+                  "query": []
+                },
+                "description": "Requires requisitions.read and access to a completed requisition. Returns an application/pdf attachment with no-store caching. Save the response to inspect it."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Binary response is non-empty', () => pm.expect(pm.response.responseSize).to.be.above(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT: SENDS EMAIL] Email requisition PDF",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"recipient\": \"CUSTOMER\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{bookkeeperToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/{{requisitionId}}/email",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "{{requisitionId}}",
+                    "email"
+                  ],
+                  "query": []
+                },
+                "description": "BOOKKEEPER only. recipient is SALES_REP or CUSTOMER. Generates and sends a real email through configured SMTP. Do not run unless the local recipient/configuration is safe."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 204', () => pm.response.to.have.status(204));",
+                      "pm.test('Response body is empty', () => pm.expect(pm.response.text()).to.equal(''));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Update requisition",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": {{customerId}},\n  \"type\": \"NORMAL\",\n  \"gratisReason\": null,\n  \"customReason\": null,\n  \"note\": \"Updated disposable requisition\",\n  \"items\": [\n    {\n      \"productCode\": \"{{productCode}}\",\n      \"quantity\": 2\n    }\n  ],\n  \"expectedRevision\": \"{{requisitionRevision}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/{{requisitionId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "{{requisitionId}}"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP or MANAGER at security layer; workflow policy controls whether this requisition is editable. expectedRevision participates in optimistic conflict detection."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Change requisition status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"APPROVED\",\n  \"note\": \"Postman workflow test\",\n  \"expectedRevision\": \"{{requisitionRevision}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/{{requisitionId}}/status",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "{{requisitionId}}",
+                    "status"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP, MANAGER, or BOOKKEEPER. Allowed statuses depend on role, current status, and requisition type. Invalid transitions return 409/403."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Dashboard monthly requisition statistics",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/dashboard-statistics?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "dashboard-statistics"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Requires requisitions.read. Returns role-scoped monthly aggregate counters."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Paged monthly requisitions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/page?year={{year}}&month={{month}}&page={{page}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "page"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    },
+                    {
+                      "key": "page",
+                      "value": "{{page}}",
+                      "description": "Zero-based; fixed server size 20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "Optional customer search",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "COMPLETED",
+                      "description": "Optional RequisitionStatus",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Requires requisitions.read. Database pagination with fixed size 20; role visibility and filters are applied before pagination."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Requisition pagination metadata is present', () => { pm.expect(body.content).to.be.an('array'); pm.expect(body.totalElements).to.be.a('number'); pm.expect(body.totalPages).to.be.a('number'); pm.expect(body.pageNumber).to.be.a('number'); });",
+                      "pm.test('Page contains at most 20 records',()=>pm.expect(pm.response.json().content.length).to.be.at.most(20));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Paged customer requisition history",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/requisitions/customer/{{customerId}}/page?year={{year}}&month={{month}}&page={{page}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "requisitions",
+                    "customer",
+                    "{{customerId}}",
+                    "page"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    },
+                    {
+                      "key": "page",
+                      "value": "{{page}}",
+                      "description": "Zero-based; fixed server size 20",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Requires requisitions.read and access to the customer. Database-paginated monthly history."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Requisition pagination metadata is present', () => { pm.expect(body.content).to.be.an('array'); pm.expect(body.totalElements).to.be.a('number'); pm.expect(body.totalPages).to.be.a('number'); pm.expect(body.pageNumber).to.be.a('number'); });",
+                      "pm.test('Page contains at most 20 records',()=>pm.expect(pm.response.json().content.length).to.be.at.most(20));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Goods Requests",
+          "item": [
+            {
+              "name": "[SIDE EFFECT] Create goods request",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"items\": [\n    {\n      \"productCode\": \"{{productCode}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"note\": \"Disposable Postman goods request\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/goods-requests",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "goods-requests"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP only. At least one item; every item must specify exactly one of productCode or materialId and a positive quantity. Duplicate/unavailable items return 400."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Monthly goods requests (unpaginated)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{bookkeeperToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/goods-requests?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "goods-requests"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Requires goods-requests.read. Returns the complete role-scoped monthly list. This endpoint is intentionally documented without page/size because pagination is not implemented."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Process goods request",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"APPROVED\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{bookkeeperToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/goods-requests/{{goodsRequestId}}/status",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "goods-requests",
+                    "{{goodsRequestId}}",
+                    "status"
+                  ],
+                  "query": []
+                },
+                "description": "BOOKKEEPER only. status must be APPROVED or REJECTED; PENDING is rejected. Updates all pending items."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Advertising Materials",
+          "item": [
+            {
+              "name": "Advertising material management list",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/advertising-materials",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "advertising-materials"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. Returns complete management list."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Available advertising materials",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/advertising-materials/available",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "advertising-materials",
+                    "available"
+                  ],
+                  "query": []
+                },
+                "description": "Requires advertising-materials.read. Returns complete active reference list."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Create advertising material",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Disposable Material\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/advertising-materials",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "advertising-materials"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. name required, non-blank, max 150, unique ignoring case."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Change advertising material active state",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"active\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ceoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/advertising-materials/{{advertisingMaterialId}}/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "advertising-materials",
+                    "{{advertisingMaterialId}}",
+                    "active"
+                  ],
+                  "query": []
+                },
+                "description": "CEO only. active is required. Mutates catalog availability."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[SIDE EFFECT] Record advertising material distribution",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customerId\": {{customerId}},\n  \"items\": [\n    {\n      \"materialId\": {{advertisingMaterialId}},\n      \"quantity\": 1\n    }\n  ],\n  \"note\": \"Disposable Postman distribution\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{salesRepToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/advertising-materials/distributions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "advertising-materials",
+                    "distributions"
+                  ],
+                  "query": []
+                },
+                "description": "SALES_REP only. Customer must be owned and APPROVED; items non-empty and unique; IDs and quantities positive. Inserts distribution rows."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Monthly advertising material distributions (unpaginated)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{managerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/advertising-materials/distributions?year={{year}}&month={{month}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "advertising-materials",
+                    "distributions"
+                  ],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "{{year}}",
+                      "description": "2000-2100",
+                      "disabled": false
+                    },
+                    {
+                      "key": "month",
+                      "value": "{{month}}",
+                      "description": "1-12",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Requires advertising-materials.read. Returns complete role-scoped monthly history. No page/size parameters exist."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "90 Authorization Scenarios",
+      "description": "Explicit positive and negative security checks. Negative POST requests are expected to be rejected before mutation.",
+      "item": [
+        {
+          "name": "Positive — authenticated profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ceoToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ],
+              "query": []
+            },
+            "description": "Read-only positive authentication check using ceoToken."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative — missing JWT",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ],
+              "query": []
+            },
+            "description": "Read-only negative authentication check. Must return 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing JWT returns 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Positive — manager reads customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers?page=0&size=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "1",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Read-only positive role scenario."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Pagination metadata is present', () => { pm.expect(body.content).to.be.an('array'); pm.expect(body.totalElements).to.be.a('number'); pm.expect(body.totalPages).to.be.a('number'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative — MANAGER cannot create customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"objectName\": \"Must Not Be Created\",\n  \"companyName\": \"Forbidden\",\n  \"pib\": \"999999992\",\n  \"phone\": \"\",\n  \"email\": \"\",\n  \"address\": \"Forbidden\",\n  \"googleMapsUrl\": \"\",\n  \"note\": \"Request must be rejected before service execution\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ],
+              "query": []
+            },
+            "description": "Negative authorization scenario. Expected 403; Spring Security rejects it before mutation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Manager write is forbidden',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative — SALES_REP cannot list employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{salesRepToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "employees"
+              ],
+              "query": []
+            },
+            "description": "Read-only negative authorization scenario. Expected 403 because SALES_REP lacks employees.read."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Sales representative is forbidden',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative — MANAGER cannot record AI activity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CONTACT\",\n  \"notes\": \"Must not be written\",\n  \"outcome\": \"Must be rejected\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/customers/{{customerId}}/activities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "customers",
+                "{{customerId}}",
+                "activities"
+              ],
+              "query": []
+            },
+            "description": "Negative role scenario. The service rejects non-SALES_REP callers with 403 before inserting an activity."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Manager activity write is forbidden',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
+

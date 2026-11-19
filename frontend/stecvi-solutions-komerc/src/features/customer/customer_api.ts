@@ -53,7 +53,7 @@ function toCustomer(customer: ApiCustomer): Customer {
 }
 
 export const customerApi = {
-    async findAll(search = "", page = 0, size = 50, signal?: AbortSignal, risk?: string): Promise<CustomerPage> {
+    async findAll(search = "", page = 0, size = 24, signal?: AbortSignal, risk?: string): Promise<CustomerPage> {
         const params = new URLSearchParams({ page: String(page), size: String(size) });
         if (search.trim()) params.set("search", search.trim());
         if (risk) params.set("risk", risk);

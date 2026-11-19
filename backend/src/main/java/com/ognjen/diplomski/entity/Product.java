@@ -29,7 +29,7 @@ public class Product {
     private BigDecimal price;
 
     @Column(name = "picture_url", nullable = false, length = 500)
-    private String pictureUrl = "products/placeholder.webp";
+    private String pictureUrl = "products/placeholder.jpg";
 
     @Column(name = "volume_liters", nullable = false, precision = 10, scale = 3)
     private BigDecimal volumeLiters = BigDecimal.ZERO;

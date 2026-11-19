@@ -90,11 +90,11 @@ class SalesReportExcelServiceImplTests {
                 ),
                 List.of(
                         new GratisProductReportResponse(
-                                "PR-001", "Boca", "products/placeholder.webp",
+                                "PR-001", "Boca", "products/placeholder.jpg",
                                 new BigDecimal("2"), new BigDecimal("0.750"), PackageType.BOTTLE
                         ),
                         new GratisProductReportResponse(
-                                "PR-002", "Balon", "products/placeholder.webp",
+                                "PR-002", "Balon", "products/placeholder.jpg",
                                 new BigDecimal("3"), new BigDecimal("5.000"), PackageType.JUG
                         )
                 ),
@@ -132,7 +132,7 @@ class SalesReportExcelServiceImplTests {
                         new BigDecimal("16.500")
                 ),
                 List.of(new GratisProductReportResponse(
-                        "PR-001", "Boca", "products/placeholder.webp",
+                        "PR-001", "Boca", "products/placeholder.jpg",
                         new BigDecimal("2"), new BigDecimal("0.750"), PackageType.BOTTLE
                 )),
                 List.of(new GratisReasonReportResponse(GratisReason.GIFT, new BigDecimal("1.500")))
@@ -165,7 +165,7 @@ class SalesReportExcelServiceImplTests {
         return new ProductSalesReportResponse(
                 "PR-001",
                 "Proizvod",
-                "products/placeholder.webp",
+                "products/placeholder.jpg",
                 new BigDecimal("12"),
                 new BigDecimal("0.750"),
                 PackageType.BOTTLE,

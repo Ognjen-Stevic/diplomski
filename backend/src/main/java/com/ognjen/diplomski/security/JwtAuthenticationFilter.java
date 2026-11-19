@@ -1,5 +1,6 @@
 package com.ognjen.diplomski.security;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -38,10 +39,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authorization.substring(7).trim();
         try {
-            String username = jwtService.extractUsername(token);
-            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            Claims claims = jwtService.parseAndValidate(token);
+            String username = claims.getSubject();
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails user = userDetailsService.loadUserByUsername(username);
-                if (jwtService.isValid(token, user)) {
+                if (jwtService.isValid(claims, user)) {
                     var authentication = new UsernamePasswordAuthenticationToken(
                             user, null, user.getAuthorities());
                     authentication.setDetails(

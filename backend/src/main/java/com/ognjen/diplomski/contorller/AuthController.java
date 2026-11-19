@@ -4,7 +4,9 @@ import com.ognjen.diplomski.dto.AuthResponse;
 import com.ognjen.diplomski.dto.LoginRequest;
 import com.ognjen.diplomski.dto.UserResponse;
 import com.ognjen.diplomski.security.AppUserPrincipal;
+import com.ognjen.diplomski.security.LoginRateLimiter;
 import com.ognjen.diplomski.service.impl.AuthServiceImpl;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,9 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthServiceImpl authService;
+    private final LoginRateLimiter loginRateLimiter;
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+        loginRateLimiter.checkAttempt(servletRequest.getRemoteAddr(), request.email());
         return authService.login(request);
     }
 

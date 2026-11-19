@@ -31,6 +31,7 @@ export function CustomerCard({
 }) {
     const { user, hasPermission } = useAuth();
     const isSalesRepresentative = user?.role === "SALES_REP";
+    const canShowCallAction = user?.role !== "MANAGER";
     const canUsePrimaryAction = isSalesRepresentative
         ? customer.actions.canCreateRequisition && hasPermission(PERMISSIONS.REQUISITIONS_CREATE)
         : customer.actions.canViewRequisitionHistory && hasPermission(PERMISSIONS.REQUISITIONS_READ);
@@ -41,7 +42,7 @@ export function CustomerCard({
     const actionClassName = "inline-flex items-center justify-center gap-2 rounded-xl bg-yale-blue px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-stormy-teal focus:outline-none focus:ring-2 focus:ring-stormy-teal focus:ring-offset-2 aria-disabled:cursor-not-allowed aria-disabled:bg-graphite/20 aria-disabled:text-graphite/55 aria-disabled:hover:bg-graphite/20";
 
     return (
-        <article className="group relative overflow-hidden rounded-2xl border border-dust-grey bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-stormy-teal hover:shadow-md">
+        <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-dust-grey bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-stormy-teal hover:shadow-md">
             <button
                 type="button"
                 onClick={onOpen}
@@ -49,8 +50,8 @@ export function CustomerCard({
                 aria-label={`Otvori detalje kupca ${customer.objectName}`}
             />
 
-            <div className="pointer-events-none relative z-10">
-                <div className="flex items-start gap-4">
+            <div className="pointer-events-none relative z-10 flex h-full flex-col">
+                <div className="flex items-start gap-4 pb-5">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-dust-grey/35 text-yale-blue">
                         <Building2 className="h-5 w-5" aria-hidden="true" />
                     </span>
@@ -84,7 +85,7 @@ export function CustomerCard({
                 </div>
 
 
-                <div className="pointer-events-auto relative z-20 mt-5 grid grid-cols-2 gap-3 border-t border-dust-grey pt-4">
+                <div className="pointer-events-auto relative z-20 mt-auto grid grid-cols-2 gap-3 border-t border-dust-grey pt-4">
                     <button
                         type="button"
                         aria-disabled={!canUsePrimaryAction}
@@ -108,7 +109,7 @@ export function CustomerCard({
                         )}
                     </button>
 
-                    {canCall ? (
+                    {canShowCallAction && (canCall ? (
                         <a
                             href={`tel:${callablePhone}`}
                             onClick={stopCardClick}
@@ -131,7 +132,7 @@ export function CustomerCard({
                                 Pozivanje nije dostupno jer broj telefona nije ispravan ili nemate dozvolu.
                             </span>
                         </button>
-                    )}
+                    ))}
 
                     {customer.actions.canChangeSalesRep && (
                         <button
